@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Swap Hive Dollar</title>
+        <link rel="manifest" crossorigin="use-credentials" href="/manifest.json" />
+        <link rel="icon" href="assets/hiveupme.png">
+        <script src="./libs/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <link href="./libs/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+        <!--<link rel="stylesheet" href="css/main.css">-->
+
+        <script src="./libs/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+        <script src="./libs/@hiveio/hive-js/dist/hive.min.js"></script>
+        <script src="./libs/axios/dist/axios.min.js"></script>
+        <script src="./libs/sscjs@latest/dist/ssc.min.js"></script>
+        <script src="./libs/ajax/libs/uuid/8.1.0/uuidv4.min.js"></script>
+        <script src="./libs/ajax/libs/crypto-js/4.1.1/crypto-js.min.js" integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="js/main.js"></script>
+        <style>
+            body {
+            visibility: hidden;
+            }
+        </style>
+        <link rel="stylesheet" href="css/main-dark.css">
+        <link rel="stylesheet" href="css/main-light.css">
+        <script>
+            $(window).on("load", function() {
+            // Check local storage for saved theme
+                if (localStorage.getItem("theme") === "light") {
+                    $("link[href='css/main-black.css']").prop("disabled", true);
+                    $("link[href='css/main-light.css']").prop("disabled", false);
+                } else {
+                    $("link[href='css/main-black.css']").prop("disabled", false);
+                    $("link[href='css/main-light.css']").prop("disabled", true);
+                }
+                // Show body and logo
+                $("body").css("visibility", "visible");
+                $("#logo").show();
+            });
+        </script>
+    </head>
+
+    <body>
+    <div class="modal fade" id="authqr" data-bs-backdrop="static" data-bs-keyboard="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content d-flex rounded-3 bg">
+                <div class="m-3">
+                    <div id="qr-div" class="d-none flex-column align-items-center justify-content-center">
+                        <a target="_blank" id="qr-link" class="bg-light p-3 rounded-3">
+                            <img id="qr-code">
+                        </a>
+                        <span class="mt-3 text-center">Scan or Tap this QR Code through any HBD Authentication App to verify your account.</span>
+                    </div>
+                    <div id="approve-div" class="d-none flex-column align-items-center justify-content-center">
+                        <span class="text-center text-info">Succesfully Connected. Click Approve and then confirm the transaction through HBD Authentication App.</span>
+                        <button type="button" id="approve" class="btn btn-primary rounded-pill w-100 mt-2">Approve</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <div class="m-0 mt-2 mb-2">
+            <div class="d-flex align-items-center justify-content-center">
+                <img id="logo" src="assets/icons/icon-144x144.png">
+                <div class="p-3 m-0">
+                    <p class="font-family-size-large m-0 c">SWAP HIVE DOLLAR</p>
+                    <p class="m-0 font-family-size-medium">LIQUIDITY BRIDGE</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mbody mt-0 d-flex justify-content-center">
+            <div class="d-flex flex-column rounded-3 bg p-0 m-3 mt-0 card column-one-scale">
+                <div class="m-3">
+                    <p class="font-family-size-medium-large mb-2">Wallet</p>
+                    <div class="d-flex mb-2">
+                        <div class="input-group input-group-sm d-flex flex-nowrap">
+                            <span class="input-group-text" id="usymbol">@</span>
+                            <input type="text" class="input form-control input-color" id="username" placeholder="Username">
+                            <button type="button" id="checkbalance" class="btn btn-danger ms-2 rounded-pill">Load</button>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex flex-column mb-3">
+                        <p class="m-0"><span class="s pointer font-family-size-medium"><span id="hive" class="qt token">0</span> <span class="sym">HBD</span></span></p>
+                        <p class="m-0"><span class="s pointer font-family-size-medium"><span id="swaphive" class="qt token">0</span> <span class="sym">SWAP.HBD</span></span></p>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex flex-column mb-3">
+                        <p class="text-info mb-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 19 19">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
+                                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"></path>
+                            </svg>
+                            <span class="font-family-size-medium-large">Fee Info</span>
+                        </p>
+                        <div class="tb-div-two">
+                            <table class="my-table">
+                                <tr>
+                                    <span class="font-family-size-small-medium fee-info-hive">HBD => SWAP.HBD :</span>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <p class="m-0 fee font-family-size-small-medium">
+                                            <span class="fee font-family-size-small-medium fee-font-color">-0.50%</span> Min Fee
+                                        </p>
+                                    </td>
+                                    <td>
+                                        <p class="m-0 fee font-family-size-small-medium">
+                                            <span class="font-family-size-small-medium fee-font-color fee">0.20%</span> Mid Fee
+                                        </p>
+                                    </td>
+                                    <td>
+                                        <p class="m-0 fee font-family-size-small-medium">
+                                            <span class="font-family-size-small-medium fee-font-color fee">0.65%</span> Max Fee
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="fee-separator"></div>
+                        <div class="tb-div-two">
+                            <table class="my-table">
+                                <tr>
+                                    <span class="font-family-size-small-medium fee-info-hive">SWAP.HBD => HBD :</span>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <p class="m-0 fee font-family-size-small-medium">
+                                            <span class="fee font-family-size-small-medium fee-font-color">-0.50%</span> Min Fee
+                                        </p>
+                                    </td>
+                                    <td>
+                                        <p class="m-0 fee font-family-size-small-medium">
+                                            <span class="font-family-size-small-medium fee-font-color fee">0.20%</span> Mid Fee
+                                        </p>
+                                    </td>
+                                    <td>
+                                        <p class="m-0 fee font-family-size-small-medium">
+                                            <span class="font-family-size-small-medium fee-font-color fee">0.65%</span> Max Fee
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>                        
+                    </div> 
+                    
+                    <hr>
+
+                    <div class="d-flex flex-column mb-0">
+                        <div class="mt-0">                   
+                            <a href="https://peakd.com/swap/@hiveupme/hiveupme-swap-script-simple-ui-solution" target="_blank" class="link-info font-family-size-medium">Learn How to Use</a>
+                        </div>
+                        <div class="mt-2">
+                            <a href="https://discord.com/invite/XYMrvyr" target="_blank" class="link-light m-2">
+                                <svg class="discord-color" xmlns="http://www.w3.org/2000/svg" width="25" height="25" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M13.545 2.907a13.227 13.227 0 0 0-3.257-1.011.05.05 0 0 0-.052.025c-.141.25-.297.577-.406.833a12.19 12.19 0 0 0-3.658 0 8.258 8.258 0 0 0-.412-.833.051.051 0 0 0-.052-.025c-1.125.194-2.22.534-3.257 1.011a.041.041 0 0 0-.021.018C.356 6.024-.213 9.047.066 12.032c.001.014.01.028.021.037a13.276 13.276 0 0 0 3.995 2.02.05.05 0 0 0 .056-.019c.308-.42.582-.863.818-1.329a.05.05 0 0 0-.01-.059.051.051 0 0 0-.018-.011 8.875 8.875 0 0 1-1.248-.595.05.05 0 0 1-.02-.066.051.051 0 0 1 .015-.019c.084-.063.168-.129.248-.195a.05.05 0 0 1 .051-.007c2.619 1.196 5.454 1.196 8.041 0a.052.052 0 0 1 .053.007c.08.066.164.132.248.195a.051.051 0 0 1-.004.085 8.254 8.254 0 0 1-1.249.594.05.05 0 0 0-.03.03.052.052 0 0 0 .003.041c.24.465.515.909.817 1.329a.05.05 0 0 0 .056.019 13.235 13.235 0 0 0 4.001-2.02.049.049 0 0 0 .021-.037c.334-3.451-.559-6.449-2.366-9.106a.034.034 0 0 0-.02-.019Zm-8.198 7.307c-.789 0-1.438-.724-1.438-1.612 0-.889.637-1.613 1.438-1.613.807 0 1.45.73 1.438 1.613 0 .888-.637 1.612-1.438 1.612Zm5.316 0c-.788 0-1.438-.724-1.438-1.612 0-.889.637-1.613 1.438-1.613.807 0 1.451.73 1.438 1.613 0 .888-.631 1.612-1.438 1.612Z"></path>
+                                </svg>
+                            </a>
+
+                            <a href="https://peakd.com/@uswap.hbd/" target="_blank" class="link-light m-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 220 190">
+                                    <defs class="cls-1"></defs>
+                                    <g id="Layer_2" data-name="Layer 2">
+                                        <g id="Layer_1-2" data-name="Layer 1">
+                                            <path class="cls-1" d="M157.27,107.26a1,1,0,0,1,.82,1.42l-46.75,80.85a1,1,0,0,1-.82.47H81.94a.94.94,0,0,1-.81-1.42l46.75-80.85a.94.94,0,0,1,.81-.47ZM129.48,84.09a1,1,0,0,1-.82-.47L81.13,1.42A.94.94,0,0,1,81.94,0h28.58a1,1,0,0,1,.82.47l47.53,82.2a.94.94,0,0,1-.81,1.42Z"/>
+                                            <path class="cls-1" d="M135.13,1.42A.94.94,0,0,1,136,0h28.62a.93.93,0,0,1,.81.47l54.49,94.06a.93.93,0,0,1,0,.94l-54.49,94.06a.93.93,0,0,1-.81.47H136a.94.94,0,0,1-.82-1.42L189.34,95Zm-23.26,93.1a1,1,0,0,1,0,1L57.13,189.53a1,1,0,0,1-1.65,0L.13,95.48a1,1,0,0,1,0-1L54.87.47a1,1,0,0,1,1.65,0Z"/>
+                                        </g>
+                                    </g>
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-column rounded-3 bg p-0 m-3 mt-0 flex-grow-1 card column-two-scale">
+                <div class="m-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <p class="font-family-size-medium-large mb-2">Conversion</p>
+                        <span class="font-family-size-medium mb-2">
+                            Minimum:&nbsp;
+                            <span id="minimum" class="font-family-size-medium mb-2 text-info">1 HBD</span>
+                        </span>
+                    </div>
+
+                    <div class="d-flex">
+                        <div class="input-div-change d-flex input-group input-group-sm">
+                            <input type="number" class="input form-control input-change input-color" id="inputquantity" placeholder="Send">
+                            <div class="input-group-append input-group-sm">
+                                <select id="input" class="form-select form-select-lg input select-change input-color" style="width: initial;">
+                                    <option value="HBD">HBD</option>
+                                    <option value="SWAP.HBD">SWAP.HBD</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-center m-1 reduce-gap-one">
+                        <button type="button" id="reverse" class="btn text-light rounded-pill pointer">
+                            <svg class="reverse-color" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5zm-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5z"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="d-flex reduce-gap-two">
+                        <p class="font-family-size-medium mb-2">Expectation</p>
+                    </div>
+
+                    <div class="d-flex">
+                        <div class="input-div-change d-flex input-group input-group-sm">
+                            <input type="number" class="input form-control input-change input-color" id="outputquantity" placeholder="Expectation">
+                            <div class="input-group-append input-group-sm">
+                                <select id="output" class="form-select form-select-lg input select-change input-color" style="width: initial;" disabled>
+                                    <option value="HBD">HBD</option>
+                                    <option value="SWAP.HBD" selected>SWAP.HBD</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex">
+                        <p class="mt-2 mb-0 font-family-size-small-medium">Expected Fee: <span id="expectedfee" class="text-info font-family-size-small-medium">0.000</span>&nbsp;<span id="feeticker" class="text-info font-family-size-small-medium">HBD</span>&nbsp;&nbsp;(<span id="expectedper" class="text-info font-family-size-small-medium">0.000</span>%)</p>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-flex heading-group">
+                        <p class="mt-0 font-family-size-medium slippage-scale">Slippage</p>
+                    </div>
+
+                    <div class="d-flex r-button-flex">
+                        <div class="button-group"> 
+                            <label class="radio-label font-family-size-small-medium"><input type="radio" name="my-radio-group" value="0.00"><span>0.00%</span></label>                           
+                            <label class="radio-label font-family-size-small-medium"><input type="radio" name="my-radio-group" value="0.01" checked><span>0.01%</span></label>
+                            <label class="radio-label font-family-size-small-medium"><input type="radio" name="my-radio-group" value="0.05"><span>0.05%</span></label>
+                            <label class="radio-label font-family-size-small-medium"><input type="radio" name="my-radio-group" value="0.10"><span>0.10%</span></label>
+                            <label class="radio-label font-family-size-small-medium"><input type="radio" name="my-radio-group" value="0.20"><span>0.20%</span></label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex receive-group">
+                        <p class="mt-0 mb-0 font-family-size-medium">Minimum To Receive: <span id="slipageqty" class="text-info-two font-family-size-medium">0.000</span>&nbsp;<span id="minreceivesymbol" class="text-info font-family-size-medium">SWAP.HBD</span></p>
+                    </div>
+
+                    <hr>
+
+                    <div class="mt-3 d-flex align-items-center justify-content-center mb-3">
+                        <div class="d-flex align-items-center box rounded-3 flex-wrap justify-content-center me-2 custom-box">
+                            <input class="form-check-input pointer d-none" type="radio" name="txtype" id="txtype" value="Hive Keychain" disabled>
+                            <label class="form-check-label pointer d-flex justify-content-center align-items-center" for="txtype">
+                              <img class="ops" src="assets/hive_keychain.png">
+                              <span class="text-nowrap font-family-size-medium">Hive Keychain</span>
+                            </label>
+                        </div>                          
+                          
+                        <div class="d-flex align-items-center box rounded-3 flex-wrap justify-content-center ms-2 custom-box">
+                            <input class="form-check-input pointer d-none" type="radio" name="txtype" id="txtype1" value="Hive Auth" disabled>
+                            <label class="form-check-label pointer d-flex justify-content-center" for="txtype1">
+                                <img class="ops" src="assets/hive_auth.png">
+                                <span class="text-nowrap font-family-size-medium">Hive Auth</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 d-flex mb-0">
+                        <div class="btn-group btn-group-sm btn-scale">
+                            <button type="button" id="swap" class="btn btn-danger rounded-pill mb-3 w-100 btn-swap" disabled>SWAP</button>
+                        </div>
+                    </div>    
+                    <div class="d-flex align-items-center">
+                        <div id="loading" class="d-none spinner-border text-danger"></div>
+                        <span id="status" class="ms-3 font-family-size-small-medium"></span>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div class="d-flex flex-column rounded-3 bg p-0 m-3 mt-0 card column-three-scale">
+                <div class="m-3">
+                    <p class="font-family-size-medium-large mb-2">Available Liquidity</p>
+                    <div class="d-flex align-items-center mb-1">
+                        <p class="font-family-size-medium m-0 fee">@uswap.hbd</p>
+                        <button type="button" id="refresh" class="btn-sm btn-danger ms-2 rounded-pill font-family-size-small">Refresh</button>
+                    </div>
+
+                    <div class="d-flex flex-column mb-2">
+                        <p class="font-family-size-medium text-info mb-0"><span id="hiveliquidity" class="text-info-three">0</span> <span class="details">HBD</span></p>
+                        <p class="font-family-size-medium text-info mb-0"><span id="swaphiveliquidity" class="text-info-three">0</span> <span class="details">SWAP.HBD</span></p>
+                    </div> 
+
+                    <hr>                     
+
+                    <div class="">
+                        <p class="font-family-size-medium mt-2 mb-2">Provide Liquidity and Earn Rewards!</p>
+                        <p class="liquidity font-family-size-small-medium">You can provide Liquidity on the lower side of the bridge to earn <span class="fee">0.5%</span> (Max) instant rewards!</p>
+                        <!--
+                        <div class="mt-3 d-flex justify-content-center">                            
+                            <div class="d-flex flex-column box f alignclass">        
+                                <a class="link-lightv2 font-family-size-small-medium" href="https://uswap.app/" target="_blank">        
+                                    <span style="vertical-align: middle;">Use Uswap Bridge (<span class="fee">Fee 0.23% & Reward 0.22%</span>) for Your Next Swap!&nbsp;</span>        
+                                    <svg style="vertical-align: middle;" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">        
+                                        <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>        
+                                        <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>        
+                                    </svg>        
+                                </a>        
+                                <div id="bridge" class="d-flex d-none alignclass">        
+                                    <div class="d-flex flex-column align-items-center alignclass">        
+                                        <span class="font-family-size-small-medium">HIVE</span>        
+                                        <span id="hive_liq" class="font-family-size-small-medium text-info">0</span>        
+                                    </div>        
+                                    <span class="font-family-size-medium ms-3 me-3">        
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left-right" viewBox="0 0 16 16">        
+                                            <path fill-rule="evenodd" d="M1 11.5a.5.5 0 0 0 .5.5h11.793l-3.147 3.146a.5.5 0 0 0 .708.708l4-4a.5.5 0 0 0 0-.708l-4-4a.5.5 0 0 0-.708.708L13.293 11H1.5a.5.5 0 0 0-.5.5zm14-7a.5.5 0 0 1-.5.5H2.707l3.147 3.146a.5.5 0 1 1-.708.708l-4-4a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 4H14.5a.5.5 0 0 1 .5.5z"/>        
+                                        </svg>        
+                                    </span>        
+                                    <div class="d-flex flex-column align-items-center alignclass">        
+                                        <span class="font-family-size-small-medium">SWAP.HIVE</span>        
+                                        <span id="swap_liq" class="font-family-size-small-medium text-info">0</span>        
+                                    </div>        
+                                </div>        
+                            </div>                                 
+                        </div>
+                        -->   
+                    </div>                    
+
+                    <hr>
+
+                    <div class="mb-0">
+                        <div class="d-flex align-items-center mb-2">
+                            <p class="font-family-size-medium-large m-0">HIVE/HBD Market Info</p>
+                            <button type="button" class="refreshHiveMarket btn-sm btn-danger ms-3 rounded-pill font-family-size-small">Refresh</button>
+                        </div>
+                        <div class="tb-div-three font-family-size-medium text-info">
+                            <table class="my-table-hive">
+                                <tr>
+                                    <td>
+                                        <p class="mb-0">
+                                            <span class="details">
+                                                <a href="https://wallet.hive.blog/market" target="_blank" class="price-info">HIVE <img id="logo-token" src="assets/icons/hive-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td>                                    
+                                        <p class="mb-0"><span id="hiveusdprice">$0</span></p>          
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <p class="mb-0">
+                                            <span class="details"><a href="https://wallet.hive.blog/market" target="_blank" class="price-info">HBD <img id="logo-token" src="assets/icons/hive-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td>                                    
+                                        <p class="mb-0"><span id="hbdusdprice">$0</span></p>          
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>                        
+                    </div>
+                    
+                    <hr>
+
+                    <div class="mb-0">
+                        <div class="d-flex align-items-center mb-2">
+                            <p class="font-family-size-medium m-0">Token Market Info</p>
+                            <button type="button" class="refreshTokenMarket btn-sm btn-danger ms-3 rounded-pill font-family-size-small">Refresh</button>
+                        </div>
+                        <div class="tb-div-four font-family-size-small-medium text-info">
+                            <table class="my-table-hive">
+                                <tr>
+                                    <td>
+                                        <p class="mb-0">
+                                            <span class="details">
+                                                <a href="https://hive-engine.com/trade/VAULT" target="_blank" class="price-info">VAULT <img id="logo-token" src="assets/icons/vault-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td>                                    
+                                        <p class="mb-0"><span id="vaultusdprice">$0</span></p>          
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <p class="mb-0">
+                                            <span class="details">
+                                                <a href="https://hive-engine.com/trade/UPME" target="_blank" class="price-info">UPME <img id="logo-token" src="assets/icons/upme-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td>                                    
+                                        <p class="mb-0"><span id="upmeusdprice">$0</span></p>          
+                                    </td>
+                                </tr>
+                            </table>
+                            <!--
+                            <table class="my-table-token">
+                                <tr class="">
+                                    <td class="tb-token-td">
+                                        <p class="mb-0">
+                                            <span class="details">
+                                                <a href="https://hive-engine.com/trade/VAULT" target="_blank" class="price-info">VAULT <img id="logo-token" src="assets/icons/vault-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td class="tb-token-td">                               
+                                        <p class="mb-0"><span id="vaultusdprice">$0</span></p>          
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <tr class="">
+                                    <td class="tb-token-td">
+                                        <p class="mb-0">
+                                            <span class="details">
+                                                <a href="https://hive-engine.com/trade/UPME" target="_blank" class="price-info">UPME <img id="logo-token" src="assets/icons/upme-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td class="tb-token-td">                                   
+                                        <p class="mb-0"><span id="upmeusdprice">$0</span></p>          
+                                    </td>
+                                    <td></td>
+                                </tr>                                
+                                <tr class="">
+                                    <td class="tb-token-td">
+                                        <p class="mb-0">
+                                            <span class="details">
+                                                <a href="https://hive-engine.com/trade/WINEX" target="_blank" class="price-info">WINEX <img id="logo-token" src="assets/icons/winex-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td class="tb-token-td">                             
+                                        <p class="mb-0"><span id="winexusdprice">$0</span></p>          
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <tr class="">
+                                    <td class="tb-token-td">
+                                        <p class="mb-0">
+                                            <span class="details"><a href="https://hive-engine.com/trade/HELIOS" target="_blank" class="price-info">HELIOS <img id="logo-token" src="assets/icons/helios-72x72.png"> Market Price</a>
+                                            </span>
+                                        </p>  
+                                    </td>
+                                    <td class="tb-token-td">                                 
+                                        <p class="mb-0"><span id="heliosusdprice">$0</span></p>          
+                                    </td>
+                                    <td></td>
+                                </tr>                                
+                            </table>
+                            -->
+                        </div>                        
+                    </div>                                    
+                </div>
+            </div>
+        </div>
+
+        <div id="historycard" class="mbody mt-0 d-none justify-content-center">
+            <div class="d-flex flex-column rounded-3 bg p-0 m-3 mt-0 card w-100">
+                <div class="m-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <p class="font-family-size-medium-large m-0">HBD History</p>
+                        <button type="button" class="refreshHistory btn-sm btn-danger ms-3 rounded-pill font-family-size-small">Refresh</button>
+                    </div>
+                    <div class="tb-div">
+                        <table class="htable">
+                            <thead>
+                                <tr>
+                                    <th>ACCOUNT</th>
+                                    <th>QUANTITY</th>
+                                    <th>TYPE</th>
+                                    <th>TIME</th>
+                                    <th></th>
+                                </tr>
+                            </thead> 
+                            <tbody id="historyHive"> 
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-column rounded-3 bg p-0 m-3 mt-0 card  w-100">
+                <div class="m-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <p class="font-family-size-medium-large m-0">SWAP.HBD History</p>
+                        <button type="button" class="refreshHistory btn-sm btn-danger ms-3 rounded-pill font-family-size-small">Refresh</button>
+                    </div>
+                    <div class="tb-div">
+                        <table class="htable">
+                            <thead>
+                                <tr>
+                                    <th>ACCOUNT</th>
+                                    <th>QUANTITY</th>
+                                    <th>TYPE</th>
+                                    <th>TIME</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="historySwapHive">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <div class="developed-by-container font-family-size-small-medium">
+                <p>Developed by <a class="alih-color" href="https://peakd.com/@ali-h" target="_blank">@ali-h</a> & <a class="theguruasia-color" href="https://peakd.com/@theguruasia" target="_blank">@theguruasia</a></p>
+            </div>  
+            <div class="popup-by-container-hive font-family-size-small-medium">
+                <div>
+                    <span class="popup-by-container-text">Hive API Node : </span>
+                    <button id="popup-button-hive" class="popup-link" value="https://anyx.io">https://anyx.io</button>
+                </div>
+            </div>
+            <div class="popup-by-container-engine font-family-size-small-medium">
+                <div>            
+                    <span class="popup-by-container-text">Engine API Node : </span>
+                    <button id="popup-button-engine" class="popup-link" value="https://engine.rishipanthee.com/">https://engine.rishipanthee.com</button>
+                </div>
+            </div>
+            <div class="theme-buttons-container font-family-size-small-medium"> 
+                <p class="m-0 themes-color">Theme </p>           
+                <button type="button" id="changeThemeDark" class="btn text-light rounded-pill pointer">
+                    <svg class="svg-dark-color" id="dark" fill="currentColor" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"></path>
+                    </svg>
+                </button>
+                <button type="button" id="changeThemeLight" class="btn text-light rounded-pill pointer">
+                    <svg class="svg-light-color" id="light" fill="currentColor" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>                        
+                    </svg>
+                </button>            
+            </div>
+        </div>
+    
+        <div id="popup-container-hive" style="display: none;">
+            <p class="popup-container-text">Please select an API node:</p>
+            <table id="api-list-hive">
+                <thead>
+                  <tr>
+                    <th class="header-node-url-hive">Node URL</th>
+                    <th class="header-status-hive">Status</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button id="close-button-hive" class="close-btn">
+                <svg class="close-button-color" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+    
+        <div id="popup-container-engine" style="display: none;">
+            <p class="popup-container-text">Please select an API node:</p>
+            <table id="api-list-engine">
+                <thead>
+                  <tr>
+                    <th class="header-node-url-engine">Node URL</th>
+                    <th class="header-status-engine">Status</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <button id="close-button-engine" class="close-btn">
+                <svg class="close-button-color" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+
+    </body>
+
+
+    <script>
+
+        if ('serviceWorker' in navigator) {
+
+            window.addEventListener("load", function() {
+
+                navigator.serviceWorker
+
+                .register("/sw.js")
+
+                .then(res => console.log("service worker registered"))
+
+                .catch(err => console.log("service worker not registered", err))
+
+            });
+
+        }
+
+    </script>
+
+</html>
+
