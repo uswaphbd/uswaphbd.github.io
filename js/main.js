@@ -624,11 +624,11 @@ $(window).bind("load", async function  () {
     async function getExtBridge () {
         try
         {
-            const res = await hive.api.getAccountsAsync(['uswap']);
-            var hiveLiq = res[0].balance.split(" ")[0];
+            const res = await hive.api.getAccountsAsync(['uswap.hbd']);
+            var hiveLiq = res[0].hbd_balance.split(" ")[0];
             hiveLiq = Math.floor(hiveLiq * DECIMAL) / DECIMAL;
 
-            const res2 = await ssc.findOne("tokens", "balances", { account: 'uswap', symbol: 'SWAP.HBD' });
+            const res2 = await ssc.findOne("tokens", "balances", { account: 'uswap.hbd', symbol: 'SWAP.HBD' });
             var swaphiveLiq = parseFloat(res2.balance) || 0.0;
             swaphiveLiq = Math.floor(swaphiveLiq * DECIMAL) / DECIMAL;
 
@@ -646,7 +646,7 @@ $(window).bind("load", async function  () {
         try
         {
             updateMin();
-            bridgebal = await getBalances("uswap");
+            bridgebal = await getBalances("uswap.hbd");
             $("#hiveliquidity").text(bridgebal.HBD.toFixed(3));
             $("#swaphiveliquidity").text(bridgebal["SWAP.HBD"].toFixed(3));
             console.log("");
@@ -1085,7 +1085,7 @@ $(window).bind("load", async function  () {
                     if (currency !== "HBD") {
                         hive_keychain.requestSendToken(
                             user,
-                            "uswap",
+                            "uswap.hbd",
                             amount,
                             memoMsg,
                             currency,
@@ -1111,7 +1111,7 @@ $(window).bind("load", async function  () {
                     else {
                         hive_keychain.requestTransfer(
                             user,
-                            "uswap",
+                            "uswap.hbd",
                             amount,
                             memoMsg,
                             currency,
@@ -1186,7 +1186,7 @@ $(window).bind("load", async function  () {
                                                 "contractAction": "transfer",
                                                 "contractPayload": {
                                                     "symbol": currency,
-                                                    "to": "uswap",
+                                                    "to": "uswap.hbd",
                                                     "quantity": amount,
                                                     "memo": memoMsg
                                                 }
@@ -1218,7 +1218,7 @@ $(window).bind("load", async function  () {
                                                     "transfer",
                                                     {
                                                         from: user,
-                                                        to: 'uswap',
+                                                        to: 'uswap.hbd',
                                                         amount: `${amount} HBD`,
                                                         memoMsg,
                                                     }
@@ -1567,7 +1567,7 @@ $(window).bind("load", async function  () {
             let hiveData = await hive.api.callAsync('condenser_api.get_accounts', [[BRIDGE_USER]]);
             if(hiveData.length > 0)
             {        
-                hiveBalance = parseFloat(hiveData[0].balance.replace("HBD", "").trim()) || 0.0;
+                hiveBalance = parseFloat(hiveData[0].hbd_balance.replace("HBD", "").trim()) || 0.0;
             }
             return hiveBalance;
         }
@@ -1809,7 +1809,7 @@ const getHistory = async () => {
                             && jsonParse.contractPayload.to != "uswap.app") {
                             var trxTo = jsonParse.contractPayload.to;
                             var trxAmount = parseFloat(jsonParse.contractPayload.quantity) || 0.0;
-                            var type = "SWAP.HIVE";
+                            var type = "SWAP.HBD";
                             var ddata = {
                                 "trx": trx_id,
                                 "to": trxTo,
