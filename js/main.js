@@ -605,7 +605,7 @@ $(window).bind("load", async function  () {
                 const res2 = await ssc.find("tokens", "balances", { account, symbol: { "$in": ["SWAP.HBD"] } }, 1000, 0, []);
                 var swaphive = res2.find(el => el.symbol === "SWAP.HBD");
                 return {
-                    HBD: dec(parseFloat(res[0].balance.split(" ")[0])),
+                    HBD: dec(parseFloat(res[0].hbd_balance.split(" ")[0])),
                     "SWAP.HBD": dec(parseFloat((swaphive) ? swaphive.balance : 0))
                 }
 
@@ -647,11 +647,11 @@ $(window).bind("load", async function  () {
         {
             updateMin();
             bridgebal = await getBalances("uswap");
-            $("#hiveliquidity").text(bridgebal.HIVE.toFixed(3));
+            $("#hiveliquidity").text(bridgebal.HBD.toFixed(3));
             $("#swaphiveliquidity").text(bridgebal["SWAP.HBD"].toFixed(3));
             console.log("");
             console.log(
-                'Update HBD Liquidity: ' + bridgebal.HIVE.toFixed(3) + ' HBD',
+                'Update HBD Liquidity: ' + bridgebal.HBD.toFixed(3) + ' HBD',
             );
 
             console.log(
