@@ -1,12 +1,12 @@
 let DECIMAL = parseInt(1000) || 0.0;
 
-let BASE_FEE = 0.002;
-let MIN_BASE_FEE = 0.00075;
-let DIFF_COEFFICIENT = 0.00575;
+let BASE_FEE = 0.003;
+let MIN_BASE_FEE = 0.001;
+let DIFF_COEFFICIENT = 0.005;
 let BASE_PRICE_HBD_TO_SHBD = 1.00;
-var HIVEPOOL = 950;
-var SHIVEPOOL = 950;
-const BRIDGE_USER = "uswap";
+var HIVEPOOL = 5;
+var SHIVEPOOL = 5;
+const BRIDGE_USER = "uswap.hbd";
 let ssc;
 
 let COINGECKO_HIVE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=hive&vs_currencies=usd";
