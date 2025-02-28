@@ -46,12 +46,12 @@ $(window).bind("load", async function  () {
     ];
 
     var he_rpc_nodes = [
+	    "https://enginerpc.com",
         "https://api.primersion.com",	
 		"https://api2.hive-engine.com/rpc",	
 		"https://engine.rishipanthee.com/",
-		"https://engine.beeswap.tools",				
-		"https://ha.herpc.dtools.dev/",			 
-		"https://api.hive-engine.com/rpc",
+		"https://engine.beeswap.tools",
+	    "https://api.hive-engine.com/rpc",
 		"https://herpc.actifit.io",
 		"https://herpc.dtools.dev"
     ];    
