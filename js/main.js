@@ -1,4 +1,4 @@
-let DECIMAL = parseInt(1000) || 0.0;
+let DECIMAL = 1000;
 
 let BASE_FEE = 0.003;
 let MIN_BASE_FEE = 0.001;
@@ -59,25 +59,43 @@ $(window).bind("load", async function  () {
     async function checkHiveNodeStatus(nodeUrl, statusElement) {
         try 
         {
-            const response = await axios.get(nodeUrl);
-            if (response.status === 200) 
+            statusElement.textContent = "Checking...";
+            statusElement.classList.remove("working", "fail");
+            
+            // Test actual Hive API functionality with a lightweight call
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const response = await fetch(nodeUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'condenser_api.get_dynamic_global_properties',
+                    params: [],
+                    id: 1
+                }),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) 
             {
-                statusElement.textContent = "Working";
-                statusElement.classList.remove("fail"); // Remove "fail" class if present
-                statusElement.classList.add("working");
-            } 
-            else 
-            {
-                statusElement.textContent = "Fail";
-                statusElement.classList.remove("working"); // Remove "working" class if present
-                statusElement.classList.add("fail");
+                const data = await response.json();
+                if (data.result) {
+                    statusElement.textContent = "Working";
+                    statusElement.classList.add("working");
+                    return true;
+                }
             }
+            throw new Error('Invalid response');
         } 
         catch (error) 
         {
-          statusElement.textContent = "Fail";
-          statusElement.classList.remove("working"); // Remove "working" class if present
-          statusElement.classList.add("fail");
+            statusElement.textContent = "Fail";
+            statusElement.classList.add("fail");
+            return false;
         }
     };
       
@@ -188,25 +206,43 @@ $(window).bind("load", async function  () {
     async function checkEngineNodeStatus(nodeUrl, statusElement) {
         try 
         {
-            const response = await axios.get(nodeUrl);
-            if (response.status === 200) 
+            statusElement.textContent = "Checking...";
+            statusElement.classList.remove("working", "fail");
+            
+            // Test actual Hive-Engine API with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            const response = await fetch(nodeUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'blockchain',
+                    params: {},
+                    id: 1
+                }),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok) 
             {
-                statusElement.textContent = "Working";
-                statusElement.classList.remove("fail"); // Remove "fail" class if present
-                statusElement.classList.add("working");
-            } 
-            else 
-            {
-                statusElement.textContent = "Fail";
-                statusElement.classList.remove("working"); // Remove "working" class if present
-                statusElement.classList.add("fail");
+                const data = await response.json();
+                if (data.result) {
+                    statusElement.textContent = "Working";
+                    statusElement.classList.add("working");
+                    return true;
+                }
             }
+            throw new Error('Invalid response');
         } 
         catch (error) 
         {
-          statusElement.textContent = "Fail";
-          statusElement.classList.remove("working"); // Remove "working" class if present
-          statusElement.classList.add("fail");
+            statusElement.textContent = "Fail";
+            statusElement.classList.add("fail");
+            return false;
         }
     };
 
@@ -349,8 +385,53 @@ $(window).bind("load", async function  () {
 
     var user = null, bal = { HBD: 0, "SWAP.HBD": 0 }, bridgebal;
 
+    // Cache for pool balances to reduce API calls
+    var poolBalanceCache = {
+        hiveBalance: 0,
+        swapHiveBalance: 0,
+        lastUpdated: 0,
+        cacheDuration: 10000 // 10 seconds cache
+    };
+
     function dec(val) {
         return Math.floor(val * 1000) / 1000;
+    };
+
+    // Automatic node failover function with timeout
+    async function callHiveApiWithFailover(apiCall, maxRetries = 3, timeout = 5000) {
+        const currentNode = hive.api.options.url;
+        const nodesToTry = [currentNode, ...rpc_nodes.filter(n => n !== currentNode)];
+        let lastError = null;
+        
+        for (let i = 0; i < Math.min(maxRetries, nodesToTry.length); i++) {
+            try {
+                const nodeUrl = nodesToTry[i];
+                hive.api.setOptions({ url: nodeUrl, timeout: timeout });
+                console.log(`Trying Hive node [${i + 1}/${maxRetries}]: ${nodeUrl}`);
+                
+                const result = await Promise.race([
+                    apiCall(),
+                    new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Request timeout')), timeout)
+                    )
+                ]);
+                
+                console.log(`✓ Success with node: ${nodeUrl}`);
+                // Only save if it's different from the originally selected one
+                if (nodeUrl !== currentNode) {
+                    localStorage.setItem("selectedEndpoint", nodeUrl);
+                    console.log(`Saved new working node: ${nodeUrl}`);
+                }
+                return result;
+            } catch (error) {
+                lastError = error;
+                console.warn(`✗ Failed with node ${nodesToTry[i]}: ${error.message}`);
+                if (i === Math.min(maxRetries, nodesToTry.length) - 1) {
+                    throw new Error(`All ${maxRetries} node attempts failed. Last error: ${lastError.message}`);
+                }
+                // Continue to next node
+            }
+        }
     };
 
     $(document).ready(function() { 
@@ -599,8 +680,11 @@ $(window).bind("load", async function  () {
     async function getBalances(account) {
         try
         {
-            const res = await hive.api.getAccountsAsync([account]);
-            if (res.length > 0) 
+            const res = await callHiveApiWithFailover(async () => {
+                return await hive.api.getAccountsAsync([account]);
+            });
+            
+            if (res && res.length > 0 && res[0] && res[0].hbd_balance) 
             {
                 const res2 = await ssc.find("tokens", "balances", { account, symbol: { "$in": ["SWAP.HBD"] } }, 1000, 0, []);
                 var swaphive = res2.find(el => el.symbol === "SWAP.HBD");
@@ -618,37 +702,54 @@ $(window).bind("load", async function  () {
         catch (error)
         {
             console.log("Error at getBalances() : ", error);
+            return { HBD: 0, "SWAP.HBD": 0 }; // Return default instead of throwing
         }
     };
 
-    async function getExtBridge () {
+    // Consolidated function to get bridge balances and update pool cache
+    async function getBridgeBalances() {
         try
         {
-            const res = await hive.api.getAccountsAsync(['uswap.hbd']);
-            var hiveLiq = res[0].hbd_balance.split(" ")[0];
-            hiveLiq = Math.floor(hiveLiq * DECIMAL) / DECIMAL;
-
-            const res2 = await ssc.findOne("tokens", "balances", { account: 'uswap.hbd', symbol: 'SWAP.HBD' });
-            var swaphiveLiq = parseFloat(res2.balance) || 0.0;
-            swaphiveLiq = Math.floor(swaphiveLiq * DECIMAL) / DECIMAL;
-
-            $("#hive_liq").text(hiveLiq);
-            $("#swap_liq").text(swaphiveLiq);
-            $("#bridge").removeClass("d-none");
+            const bridgeBal = await getBalances("uswap.hbd");
+            
+            // Only update cache if we got valid data
+            if (bridgeBal && (bridgeBal.HBD > 0 || bridgeBal["SWAP.HBD"] > 0)) {
+                // Update pool cache while fetching bridge balances
+                poolBalanceCache.hiveBalance = bridgeBal.HBD;
+                poolBalanceCache.swapHiveBalance = bridgeBal["SWAP.HBD"];
+                poolBalanceCache.lastUpdated = Date.now();
+            }
+            
+            return bridgeBal;
         }
         catch (error)
         {
-            console.log("Error at getExtBridge() : ", error);
+            console.error("Error at getBridgeBalances() : ", error);
+            // Return cached values if available, otherwise default
+            if (poolBalanceCache.lastUpdated > 0) {
+                console.log("Using cached bridge balances due to error");
+                return {
+                    HBD: poolBalanceCache.hiveBalance,
+                    "SWAP.HBD": poolBalanceCache.swapHiveBalance
+                };
+            }
+            return { HBD: 0, "SWAP.HBD": 0 };
         }
-    };   
+    };
 
     async function refresh() {
         try
         {
             updateMin();
-            bridgebal = await getBalances("uswap.hbd");
+            bridgebal = await getBridgeBalances(); // Use consolidated function
             $("#hiveliquidity").text(bridgebal.HBD.toFixed(3));
             $("#swaphiveliquidity").text(bridgebal["SWAP.HBD"].toFixed(3));
+            
+            // Update display elements
+            $("#hive_liq").text(bridgebal.HBD.toFixed(3));
+            $("#swap_liq").text(bridgebal["SWAP.HBD"].toFixed(3));
+            $("#bridge").removeClass("d-none");
+            
             console.log("");
             console.log(
                 'Update HBD Liquidity: ' + bridgebal.HBD.toFixed(3) + ' HBD',
@@ -660,7 +761,7 @@ $(window).bind("load", async function  () {
 
             try 
             {
-                if (hive_keychain) 
+                if (typeof hive_keychain !== 'undefined') 
                 {
                     $("#txtype").removeAttr("disabled");
                     $("#txtype").attr("checked", true);
@@ -699,8 +800,10 @@ $(window).bind("load", async function  () {
             const val = $("#inputquantity").val();
             var inputVal = parseFloat(val) || 0.0;
 
-            var hBalance = await calcHiveAmount();
-            var shBalance = await calcSwapHiveAmount();
+            // Use cached pool balances
+            const poolBalances = await getPoolBalances();
+            var hBalance = poolBalances.hiveBalance;
+            var shBalance = poolBalances.swapHiveBalance;
 
             if(hBalance > 0)
             {
@@ -712,7 +815,7 @@ $(window).bind("load", async function  () {
             }
             
             var expResult = 0.0;
-            if(insymbol == "HBD")
+            if(insymbol === "HBD")
             {
                 var diff = ((inputVal * 0.5 + HIVEPOOL) / (SHIVEPOOL + HIVEPOOL)) - 0.5;
                 var adjusted_base_fee = Math.max( BASE_FEE * (1 - 2 * Math.abs(diff)), MIN_BASE_FEE );
@@ -720,7 +823,7 @@ $(window).bind("load", async function  () {
                 expResult = (inputVal * price) * (1 - adjusted_base_fee);
                 expResult = Math.floor(expResult * DECIMAL) / DECIMAL;                
             }
-            if(insymbol == "SWAP.HBD")
+            if(insymbol === "SWAP.HBD")
             {
                 var diff = ((inputVal * 0.5 + SHIVEPOOL) / (SHIVEPOOL + HIVEPOOL)) - 0.5;
                 var adjusted_base_fee = Math.max( BASE_FEE * (1 - 2 * Math.abs(diff)), MIN_BASE_FEE );
@@ -795,8 +898,10 @@ $(window).bind("load", async function  () {
 
             if(inputVal > 0.0)
             {
-                var hBalance = await calcHiveAmount();
-                var shBalance = await calcSwapHiveAmount();
+                // Use cached pool balances
+                const poolBalances = await getPoolBalances();
+                var hBalance = poolBalances.hiveBalance;
+                var shBalance = poolBalances.swapHiveBalance;
                 if(hBalance > 0)
                 {
                     HIVEPOOL = hBalance;
@@ -806,7 +911,7 @@ $(window).bind("load", async function  () {
                     SHIVEPOOL = shBalance;
                 }               
                 
-                if(insymbol == "HBD")
+                if(insymbol === "HBD")
                 {
                     var diff = ((inputVal * 0.5 + HIVEPOOL) / (SHIVEPOOL + HIVEPOOL)) - 0.5;
                     var adjusted_base_fee = Math.max( BASE_FEE * (1 - 2 * Math.abs(diff)), MIN_BASE_FEE );
@@ -814,7 +919,7 @@ $(window).bind("load", async function  () {
                     expResult = (inputVal * price) * (1 - adjusted_base_fee);
                     expResult = Math.floor(expResult * DECIMAL) / DECIMAL;
                 }
-                if(insymbol == "SWAP.HBD")
+                if(insymbol === "SWAP.HBD")
                 {
                     var diff = ((inputVal * 0.5 + SHIVEPOOL) / (SHIVEPOOL + HIVEPOOL)) - 0.5;
                     var adjusted_base_fee = Math.max( BASE_FEE * (1 - 2 * Math.abs(diff)), MIN_BASE_FEE );
@@ -986,20 +1091,25 @@ $(window).bind("load", async function  () {
     });
 
     async function updateBalance() {
-        bal = await getBalances(user);
-        console.log("");
-        console.log(
-            `Update HBD Balance: @${user} ` + bal.HBD.toFixed(3) + ' HBD',
-        );
+        try {
+            bal = await getBalances(user);
+            console.log("");
+            console.log(
+                `Update HBD Balance: @${user} ` + bal.HBD.toFixed(3) + ' HBD',
+            );
 
-        console.log(
-            `Update SWAP.HBD Balance: @${user} ` + bal["SWAP.HBD"].toFixed(3) + ' SWAP.HBD',
-        );
+            console.log(
+                `Update SWAP.HBD Balance: @${user} ` + bal["SWAP.HBD"].toFixed(3) + ' SWAP.HBD',
+            );
 
-        $("#hive").text(bal.HBD.toFixed(3));
-        $("#swaphive").text(bal["SWAP.HBD"].toFixed(3));
-        var baseFee = BASE_FEE * 100;
-        //$("#basefeedisplay").text(baseFee);        
+            $("#hive").text(bal.HBD.toFixed(3));
+            $("#swaphive").text(bal["SWAP.HBD"].toFixed(3));
+            var baseFee = BASE_FEE * 100;
+            //$("#basefeedisplay").text(baseFee);
+        } catch (error) {
+            console.error("Error updating balance:", error);
+            // Keep previous balance displayed instead of showing error
+        }
     }
 
     $("#checkbalance").click(async function () {
@@ -1010,13 +1120,13 @@ $(window).bind("load", async function  () {
             await updateBalance();
             updateSwap();
             $(this).removeAttr("disabled");
-            localStorage['user'] = user;
+            localStorage.setItem('user', user);
         }
     });
 
-    if (localStorage['user']) {
-        $("#username").val(localStorage['user']);
-        user = localStorage['user'];
+    if (localStorage.getItem('user')) {
+        $("#username").val(localStorage.getItem('user'));
+        user = localStorage.getItem('user');
         updateBalance();
     }
 
@@ -1366,26 +1476,34 @@ $(window).bind("load", async function  () {
     // };
 
     const intervalBalances = async function () {
-        var TIMEOUT = 1000 * 10;
         try 
         {
             console.log("");
-            console.warn("Here Refreshing");
-            //const _await = await awaitFunction(); 
-            // await timeout(TIMEOUT);   
-            await refresh();
-            await updateBalance();
-            //updateSwap();
-            //getExtBridge();
+            console.warn("Auto-refresh started");
+            
+            // Force fresh pool balance cache on interval refresh
+            await refresh(); // This already updates poolBalanceCache
+            
+            if (user) {
+                await updateBalance();
+            }
+            
+            // Update history less frequently to reduce load
             historyReader();
+            
+            console.log("Auto-refresh completed");
             console.log("");
-            console.warn("Refresh ended");
-            // setting timeout for 60 secs
-            setTimeout(intervalBalances, 60000);
         }
         catch (error) 
         {
-            console.log("Error @ Refreshing : ", error);
+            console.error("Error during auto-refresh:", error);
+            // Show user-friendly error message
+            $("#status").text("Connection issue. Retrying...").removeClass("d-none");
+            setTimeout(() => $("#status").addClass("d-none"), 5000);
+        }
+        finally
+        {
+            // Always schedule next refresh
             setTimeout(intervalBalances, 60000);
         }
     };
@@ -1520,8 +1638,10 @@ $(window).bind("load", async function  () {
 
             if(inputVal > 0.0)
             {
-                var hBalance = await calcHiveAmount();
-                var shBalance = await calcSwapHiveAmount();
+                // Use cached pool balances
+                const poolBalances = await getPoolBalances();
+                var hBalance = poolBalances.hiveBalance;
+                var shBalance = poolBalances.swapHiveBalance;
                 if(hBalance > 0)
                 {
                     HIVEPOOL = hBalance;
@@ -1531,7 +1651,7 @@ $(window).bind("load", async function  () {
                     SHIVEPOOL = shBalance;
                 }               
                 
-                if(selectedSymbol == "HBD")
+                if(selectedSymbol === "HBD")
                 {
                     var diff = ((inputVal * 0.5 + HIVEPOOL) / (SHIVEPOOL + HIVEPOOL)) - 0.5;
                     var adjusted_base_fee = Math.max( BASE_FEE * (1 - 2 * Math.abs(diff)), MIN_BASE_FEE );
@@ -1539,7 +1659,7 @@ $(window).bind("load", async function  () {
                     expResult = (inputVal * price) * (1 - adjusted_base_fee);
                     expResult = Math.floor(expResult * DECIMAL) / DECIMAL;
                 }
-                if(selectedSymbol == "SWAP.HBD")
+                if(selectedSymbol === "SWAP.HBD")
                 {
                     var diff = ((inputVal * 0.5 + SHIVEPOOL) / (SHIVEPOOL + HIVEPOOL)) - 0.5;
                     var adjusted_base_fee = Math.max( BASE_FEE * (1 - 2 * Math.abs(diff)), MIN_BASE_FEE );
@@ -1560,12 +1680,39 @@ $(window).bind("load", async function  () {
 
     //End of refresh
 
+    // Cached function to get pool balances
+    const getPoolBalances = async (forceRefresh = false) => {
+        const now = Date.now();
+        const cacheAge = now - poolBalanceCache.lastUpdated;
+        
+        // Use cache if it's fresh and not forcing refresh
+        if (!forceRefresh && cacheAge < poolBalanceCache.cacheDuration && poolBalanceCache.lastUpdated > 0) {
+            return {
+                hiveBalance: poolBalanceCache.hiveBalance,
+                swapHiveBalance: poolBalanceCache.swapHiveBalance
+            };
+        }
+        
+        // Fetch fresh data
+        const hiveBalance = await calcHiveAmount();
+        const swapHiveBalance = await calcSwapHiveAmount();
+        
+        // Update cache
+        poolBalanceCache.hiveBalance = hiveBalance;
+        poolBalanceCache.swapHiveBalance = swapHiveBalance;
+        poolBalanceCache.lastUpdated = now;
+        
+        return { hiveBalance, swapHiveBalance };
+    };
+
     const calcHiveAmount = async () => {
         var hiveBalance = 0.0;
         try
         {
-            let hiveData = await hive.api.callAsync('condenser_api.get_accounts', [[BRIDGE_USER]]);
-            if(hiveData.length > 0)
+            let hiveData = await callHiveApiWithFailover(async () => {
+                return await hive.api.callAsync('condenser_api.get_accounts', [[BRIDGE_USER]]);
+            });
+            if(hiveData && hiveData.length > 0 && hiveData[0] && hiveData[0].hbd_balance)
             {        
                 hiveBalance = parseFloat(hiveData[0].hbd_balance.replace("HBD", "").trim()) || 0.0;
             }
@@ -1587,7 +1734,6 @@ $(window).bind("load", async function  () {
             {        
                 swapHiveBalance = parseFloat(swapHiveData.balance) || 0.0;
                 swapHiveBalance = Math.floor(swapHiveBalance * DECIMAL) / DECIMAL;
-                swapHiveBalance = parseFloat(swapHiveData.balance) || 0.0;            
             }
             return swapHiveBalance;
         }
@@ -1775,7 +1921,9 @@ const processHistory = async () => {
 const getHistory = async () => {
     var trxArray = [];
     try {
-        var resultData = await hive.api.getAccountHistoryAsync("uswap.hbd", -1, 50);
+        var resultData = await callHiveApiWithFailover(async () => {
+            return await hive.api.getAccountHistoryAsync("uswap.hbd", -1, 50);
+        });
         if (resultData.length > 0) {
             resultData.forEach(function (tx) {
                 var op = tx[1].op;
@@ -1847,7 +1995,7 @@ const setTimeStamp = async (time) => {
 historyReader();
 
 async function getSelectedEndpoint() {
-    var endpoint = await localStorage.getItem("selectedEndpoint");
+    var endpoint = localStorage.getItem("selectedEndpoint");
     if (endpoint) 
     {
       return endpoint;
@@ -1859,7 +2007,7 @@ async function getSelectedEndpoint() {
 };
 
 async function getSelectedEngEndpoint() {
-    var endpoint = await localStorage.getItem("selectedEngEndpoint");
+    var endpoint = localStorage.getItem("selectedEngEndpoint");
     if (endpoint) 
     {
       return endpoint;
@@ -1889,16 +2037,18 @@ const getHiveMarket = async () => {
 };
 
 async function callGetMarketTicker() {
-    return new Promise((resolve, reject) => {
-        hive.api.getTicker((err, result) => {
-            if (err) 
-            {
-                reject(err);
-            } 
-            else 
-            {
-                resolve(result);
-            }
+    return await callHiveApiWithFailover(async () => {
+        return new Promise((resolve, reject) => {
+            hive.api.getTicker((err, result) => {
+                if (err) 
+                {
+                    reject(err);
+                } 
+                else 
+                {
+                    resolve(result);
+                }
+            });
         });
     });
 };
@@ -1935,22 +2085,22 @@ const getTokenMarket = async () => {
         let vault_price = 0.0, upme_price = 0.0, winex_price = 0.0, helios_price = 0.0;
         if(marketInfo.length > 0)
         {           
-            if(marketInfo[0].symbol == "VAULT")
+            if(marketInfo[0].symbol === "VAULT")
             {
                 vault_price = parseFloat(marketInfo[0].lastPrice * hivePrice) || 0.0;
                 console.log("vault_price : ", vault_price);
             }
-            if(marketInfo[1].symbol == "WINEX")
+            if(marketInfo[1].symbol === "WINEX")
             {
                 winex_price = parseFloat(marketInfo[1].lastPrice * hivePrice) || 0.0;
                 console.log("winex_price : ", winex_price);
             }
-            if(marketInfo[2].symbol == "HELIOS")
+            if(marketInfo[2].symbol === "HELIOS")
             {
                 helios_price = parseFloat(marketInfo[2].lastPrice * hivePrice) || 0.0;
                 console.log("helios_price : ", helios_price);
             }
-            if(marketInfo[3].symbol == "UPME")
+            if(marketInfo[3].symbol === "UPME")
             {
                 upme_price = parseFloat(marketInfo[3].lastPrice * hivePrice) || 0.0;
                 console.log("upme_price : ", upme_price);

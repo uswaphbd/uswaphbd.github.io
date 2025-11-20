@@ -1,11 +1,11 @@
 {
   "background_color": "#000000",
-  "description": "Revolutional HIVE and SWAP.HIVE Bridge",
+  "description": "Swap HBD and SWAP.HBD instantly with low fees",
   "display": "standalone",
-  "name": "KSWAP",
+  "name": "USWAP HBD Bridge",
   "dir": "ltr",
   "orientation": "any",
-  "short_name": "KSWAP",
+  "short_name": "USWAP HBD",
   "start_url": "index.html",
   "theme_color": "#e50000",
   "categories": [
