@@ -30,10 +30,10 @@
             $(window).on("load", function() {
             // Check local storage for saved theme
                 if (localStorage.getItem("theme") === "light") {
-                    $("link[href='css/main-black.css']").prop("disabled", true);
+                    $("link[href='css/main-dark.css']").prop("disabled", true);
                     $("link[href='css/main-light.css']").prop("disabled", false);
                 } else {
-                    $("link[href='css/main-black.css']").prop("disabled", false);
+                    $("link[href='css/main-dark.css']").prop("disabled", false);
                     $("link[href='css/main-light.css']").prop("disabled", true);
                 }
                 // Show body and logo

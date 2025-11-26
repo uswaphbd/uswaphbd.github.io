@@ -14,6 +14,112 @@ let COINGECKO_HBD_URL = "https://api.coingecko.com/api/v3/simple/price?ids=hive_
 
 let USWAPFEEJSON = "https://fee.uswap.app/hbd.json";
 
+// Global RPC nodes array
+var rpc_nodes = [
+    "https://api.deathwing.me",
+    "https://hive.roelandp.nl",
+    "https://api.openhive.network",
+    "https://rpc.ausbit.dev",
+    "https://hived.emre.sh",
+    "https://hive-api.arcange.eu",
+    "https://api.hive.blog",
+    "https://api.c0ff33a.uk",
+    "https://rpc.ecency.com",
+    "https://anyx.io",
+    "https://techcoderx.com",
+    "https://api.hive.blue",
+    "https://rpc.mahdiyari.info"
+];
+
+// Global Hive Engine RPC nodes array
+var he_rpc_nodes = [
+    "https://api.hive-engine.com/rpc",
+    "https://enginerpc.com",
+    "https://api2.hive-engine.com/rpc",
+    "https://api.primersion.com",	
+    "https://engine.beeswap.tools",
+    "https://herpc.actifit.io",
+    "https://herpc.dtools.dev"
+];
+
+// Automatic node failover function with timeout - Global scope
+async function callHiveApiWithFailover(apiCall, maxRetries = 3, timeout = 5000) {
+    const currentNode = hive.api.options.url;
+    const nodesToTry = [currentNode, ...rpc_nodes.filter(n => n !== currentNode)];
+    let lastError = null;
+    
+    for (let i = 0; i < Math.min(maxRetries, nodesToTry.length); i++) {
+        try {
+            const nodeUrl = nodesToTry[i];
+            hive.api.setOptions({ url: nodeUrl, timeout: timeout });
+            console.log(`Trying Hive node [${i + 1}/${maxRetries}]: ${nodeUrl}`);
+            
+            const result = await Promise.race([
+                apiCall(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timeout')), timeout)
+                )
+            ]);
+            
+            console.log(`✓ Success with node: ${nodeUrl}`);
+            // Only save if it's different from the originally selected one
+            if (nodeUrl !== currentNode) {
+                localStorage.setItem("selectedEndpoint", nodeUrl);
+                console.log(`Saved new working node: ${nodeUrl}`);
+            }
+            return result;
+        } catch (error) {
+            lastError = error;
+            const errorMsg = error?.message || error?.toString() || 'Unknown error';
+            console.warn(`✗ Failed with node ${nodesToTry[i]}: ${errorMsg}`);
+            if (i === Math.min(maxRetries, nodesToTry.length) - 1) {
+                const finalErrorMsg = lastError?.message || lastError?.toString() || 'Unknown error';
+                throw new Error(`All ${maxRetries} node attempts failed. Last error: ${finalErrorMsg}`);
+            }
+            // Continue to next node
+        }
+    }
+};
+
+// Automatic Engine node failover function with timeout - Global scope
+async function callEngineApiWithFailover(apiCall, maxRetries = 3, timeout = 5000) {
+    const currentNode = ssc.RPC_URL || he_rpc_nodes[0];
+    const nodesToTry = [currentNode, ...he_rpc_nodes.filter(n => n !== currentNode)];
+    let lastError = null;
+    
+    for (let i = 0; i < Math.min(maxRetries, nodesToTry.length); i++) {
+        try {
+            const nodeUrl = nodesToTry[i];
+            ssc = new SSC(nodeUrl);
+            console.log(`Trying Engine node [${i + 1}/${maxRetries}]: ${nodeUrl}`);
+            
+            const result = await Promise.race([
+                apiCall(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Request timeout')), timeout)
+                )
+            ]);
+            
+            console.log(`✓ Success with Engine node: ${nodeUrl}`);
+            // Save working node
+            if (nodeUrl !== currentNode) {
+                localStorage.setItem("selectedEngEndpoint", nodeUrl);
+                console.log(`Saved new working Engine node: ${nodeUrl}`);
+            }
+            return result;
+        } catch (error) {
+            lastError = error;
+            const errorMsg = error?.message || error?.toString() || 'Unknown error';
+            console.warn(`✗ Failed with Engine node ${nodesToTry[i]}: ${errorMsg}`);
+            if (i === Math.min(maxRetries, nodesToTry.length) - 1) {
+                const finalErrorMsg = lastError?.message || lastError?.toString() || 'Unknown error';
+                throw new Error(`All ${maxRetries} Engine node attempts failed. Last error: ${finalErrorMsg}`);
+            }
+            // Continue to next node
+        }
+    }
+};
+
 $(window).bind("load", async function  () {
 
     let uswapData = await getUswapFeeInfo();
@@ -29,29 +135,12 @@ $(window).bind("load", async function  () {
     console.log("BASE_PRICE_HBD_TO_SHBD : ", BASE_PRICE_HBD_TO_SHBD);
     console.log("==================================================");
 
-    var rpc_nodes = [
-        "https://api.deathwing.me",
-		"https://hive.roelandp.nl",
-		"https://api.openhive.network",
-		"https://rpc.ausbit.dev",
-		"https://hived.emre.sh",
-		"https://hive-api.arcange.eu",
-		"https://api.hive.blog",
-		"https://api.c0ff33a.uk",
-		"https://rpc.ecency.com",
-		"https://anyx.io",
-		"https://techcoderx.com",
-		"https://api.hive.blue",
-		"https://rpc.mahdiyari.info"
-    ];
-
     var he_rpc_nodes = [
-	    "https://enginerpc.com",
-        "https://api.primersion.com",	
-		"https://api2.hive-engine.com/rpc",	
-		"https://engine.rishipanthee.com/",
-		"https://engine.beeswap.tools",
 	    "https://api.hive-engine.com/rpc",
+	    "https://enginerpc.com",
+	    "https://api2.hive-engine.com/rpc",
+        "https://api.primersion.com",	
+		"https://engine.beeswap.tools",
 		"https://herpc.actifit.io",
 		"https://herpc.dtools.dev"
     ];    
@@ -397,43 +486,6 @@ $(window).bind("load", async function  () {
         return Math.floor(val * 1000) / 1000;
     };
 
-    // Automatic node failover function with timeout
-    async function callHiveApiWithFailover(apiCall, maxRetries = 3, timeout = 5000) {
-        const currentNode = hive.api.options.url;
-        const nodesToTry = [currentNode, ...rpc_nodes.filter(n => n !== currentNode)];
-        let lastError = null;
-        
-        for (let i = 0; i < Math.min(maxRetries, nodesToTry.length); i++) {
-            try {
-                const nodeUrl = nodesToTry[i];
-                hive.api.setOptions({ url: nodeUrl, timeout: timeout });
-                console.log(`Trying Hive node [${i + 1}/${maxRetries}]: ${nodeUrl}`);
-                
-                const result = await Promise.race([
-                    apiCall(),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('Request timeout')), timeout)
-                    )
-                ]);
-                
-                console.log(`✓ Success with node: ${nodeUrl}`);
-                // Only save if it's different from the originally selected one
-                if (nodeUrl !== currentNode) {
-                    localStorage.setItem("selectedEndpoint", nodeUrl);
-                    console.log(`Saved new working node: ${nodeUrl}`);
-                }
-                return result;
-            } catch (error) {
-                lastError = error;
-                console.warn(`✗ Failed with node ${nodesToTry[i]}: ${error.message}`);
-                if (i === Math.min(maxRetries, nodesToTry.length) - 1) {
-                    throw new Error(`All ${maxRetries} node attempts failed. Last error: ${lastError.message}`);
-                }
-                // Continue to next node
-            }
-        }
-    };
-
     $(document).ready(function() { 
         var css1 = document.querySelector("link[href='css/main-dark.css']");
         var css2 = document.querySelector("link[href='css/main-light.css']");
@@ -686,11 +738,20 @@ $(window).bind("load", async function  () {
             
             if (res && res.length > 0 && res[0] && res[0].hbd_balance) 
             {
-                const res2 = await ssc.find("tokens", "balances", { account, symbol: { "$in": ["SWAP.HBD"] } }, 1000, 0, []);
-                var swaphive = res2.find(el => el.symbol === "SWAP.HBD");
+                let swapHbdBalance = 0;
+                try {
+                    const res2 = await callEngineApiWithFailover(async () => {
+                        return await ssc.find("tokens", "balances", { account, symbol: { "$in": ["SWAP.HBD"] } }, 1000, 0, []);
+                    });
+                    var swaphive = res2.find(el => el.symbol === "SWAP.HBD");
+                    swapHbdBalance = dec(parseFloat((swaphive) ? swaphive.balance : 0));
+                } catch (sscError) {
+                    console.warn("SSC API error, using 0 for SWAP.HBD:", sscError?.message || sscError);
+                }
+                
                 return {
                     HBD: dec(parseFloat(res[0].hbd_balance.split(" ")[0])),
-                    "SWAP.HBD": dec(parseFloat((swaphive) ? swaphive.balance : 0))
+                    "SWAP.HBD": swapHbdBalance
                 }
 
             } 
@@ -701,7 +762,8 @@ $(window).bind("load", async function  () {
         }
         catch (error)
         {
-            console.log("Error at getBalances() : ", error);
+            const errorMsg = error?.message || error?.toString() || 'Unknown error';
+            console.error("Error at getBalances():", errorMsg);
             return { HBD: 0, "SWAP.HBD": 0 }; // Return default instead of throwing
         }
     };
@@ -1161,6 +1223,16 @@ $(window).bind("load", async function  () {
             console.log("Connection Established");
             // Web Socket is connected
         }
+
+        ws.onerror = function (error) {
+            console.error("WebSocket Error:", error);
+            $("#loading").addClass("d-none");
+            $("#status").text("Connection error. Please try again.");
+        }
+
+        ws.onclose = function () {
+            console.log("WebSocket Connection Closed");
+        }
     } 
     else {
         $("#txtype1").attr("disabled", true);
@@ -1330,7 +1402,7 @@ $(window).bind("load", async function  () {
                                                         from: user,
                                                         to: 'uswap.hbd',
                                                         amount: `${amount} HBD`,
-                                                        memoMsg,
+                                                        memo: memoMsg,
                                                     }
                                                 ]
 
@@ -1729,7 +1801,9 @@ $(window).bind("load", async function  () {
         var swapHiveBalance = 0.0;
         try
         {
-            let swapHiveData = await ssc.findOne('tokens', 'balances', {'account': BRIDGE_USER, 'symbol': 'SWAP.HBD'});
+            let swapHiveData = await callEngineApiWithFailover(async () => {
+                return await ssc.findOne('tokens', 'balances', {'account': BRIDGE_USER, 'symbol': 'SWAP.HBD'});
+            });
             if(swapHiveData != null)
             {        
                 swapHiveBalance = parseFloat(swapHiveData.balance) || 0.0;
@@ -2014,7 +2088,7 @@ async function getSelectedEngEndpoint() {
     } 
     else 
     {
-      return "https://engine.rishipanthee.com";
+      return "https://api.hive-engine.com/rpc";
     }
 };
 
@@ -2122,7 +2196,9 @@ const getTokenMarketInfo = async (symbols) => {
     var marketJson = [];
     try
     {        
-        marketJson = await ssc.find("market", "metrics", { symbol: { "$in": [...symbols] } }, 1000, 0, []);            
+        marketJson = await callEngineApiWithFailover(async () => {
+            return await ssc.find("market", "metrics", { symbol: { "$in": [...symbols] } }, 1000, 0, []);
+        });
         return marketJson;
     }
     catch (error)
