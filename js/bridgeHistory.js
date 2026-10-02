@@ -27,6 +27,22 @@ const BridgeHistoryManager = (function() {
     }
 
     /**
+     * Is this outgoing transfer a real swap reply (payout or refund)?
+     *
+     * The backend always ends its reply memo with the user's original tx id
+     * ("... & Tx : <40-hex id>" / "Sorry, ... Tx: <id>"). Anything else the
+     * bridge sends - maintenance withdrawals, internal moves - carries no tx
+     * id and must not be listed as if it were a swap. Accounts in
+     * CONFIG.HISTORY_EXCLUDED_ACCOUNTS (maintenance/internal) are excluded
+     * outright as a second safeguard.
+     */
+    function isSwapReply(to, memo) {
+        const excluded = CONFIG.HISTORY_EXCLUDED_ACCOUNTS || [];
+        if (excluded.indexOf(to) !== -1) return false;
+        return /\b[0-9a-f]{40}\b/i.test(String(memo || ''));
+    }
+
+    /**
      * Pull raw outgoing transfers from the bridge account's history and
      * split/sort/trim them into the two lists the UI shows.
      */
@@ -46,8 +62,9 @@ const BridgeHistoryManager = (function() {
             const trxId = item[1].trx_id;
             const time = item[1].timestamp;
 
-            // Outgoing HBD payout from the bridge (excludes internal transfers to uswap.app)
-            if (opType === 'transfer' && opValue.from === CONFIG.BRIDGE_USER && opValue.to !== 'uswap.app') {
+            // Outgoing HBD payout/refund from the bridge (swap replies only)
+            if (opType === 'transfer' && opValue.from === CONFIG.BRIDGE_USER &&
+                isSwapReply(opValue.to, opValue.memo)) {
                 hiveEntries.push({
                     to: opValue.to,
                     amount: Utils.parseNumber(String(opValue.amount).replace('HBD', '').trim(), 0),
@@ -57,15 +74,17 @@ const BridgeHistoryManager = (function() {
                 return;
             }
 
-            // Outgoing SWAP.HBD payout from the bridge, via Hive Engine custom_json
-            if (opType === 'custom_json' && opValue.id === 'ssc-mainnet-hive') {
+            // Outgoing SWAP.HBD payout/refund from the bridge, via Hive Engine
+            // custom_json signed by the bridge (swap replies only)
+            if (opType === 'custom_json' && opValue.id === 'ssc-mainnet-hive' &&
+                (opValue.required_auths || []).indexOf(CONFIG.BRIDGE_USER) !== -1) {
                 try {
                     const json = JSON.parse(opValue.json);
                     if (json.contractName === 'tokens' &&
                         json.contractAction === 'transfer' &&
                         json.contractPayload &&
                         json.contractPayload.symbol === 'SWAP.HBD' &&
-                        json.contractPayload.to !== 'uswap.app') {
+                        isSwapReply(json.contractPayload.to, json.contractPayload.memo)) {
                         swapHiveEntries.push({
                             to: json.contractPayload.to,
                             amount: Utils.parseNumber(json.contractPayload.quantity, 0),

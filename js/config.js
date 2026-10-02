@@ -39,6 +39,11 @@ const CONFIG = {
 
     BRIDGE_USER: "uswap.hbd",
 
+    // Accounts never shown in the bridge-wide HBD/SWAP.HBD history tables:
+    // @theguruasia is the maintenance account, @uswap.app an internal account.
+    // (Those tables also list only swap replies - memos carrying a tx id.)
+    HISTORY_EXCLUDED_ACCOUNTS: ["theguruasia", "uswap.app"],
+
     // localStorage key for "My Recent Swaps". Must differ from the HIVE app's
     // "swapHistory": on a shared origin (e.g. both apps served from one local
     // dev server) a shared key made this page list the HIVE app's swaps.

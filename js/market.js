@@ -85,9 +85,32 @@ const MarketManager = (function() {
     }
 
     /**
-     * Fetch HBD price from CoinGecko
+     * Fetch the HBD price.
+     *
+     * Derived from the Hive internal market, as the original HBD app did:
+     * HBD/USD = HIVE/USD divided by the mid of the HIVE<->HBD ticker
+     * (HBD per HIVE). CoinGecko's hive_dollar quote was seen ~2% off the
+     * internal market (e.g. $1.019 vs ~$0.998), which on an HBD bridge makes
+     * HBD look mispriced - so CoinGecko is only the fallback here.
      */
     async function fetchHBDPrice() {
+        try {
+            const hivePrice = prices.hive > 0 ? prices.hive : await fetchHivePrice();
+            const ticker = await APIManager.tryWithFailover(() => hive.api.getTickerAsync());
+            const bid = Utils.parseNumber(ticker && ticker.highest_bid, 0);
+            const ask = Utils.parseNumber(ticker && ticker.lowest_ask, 0);
+            const mid = (bid + ask) / 2;
+
+            if (hivePrice > 0 && mid > 0) {
+                prices.hbd = Utils.roundTo(hivePrice / mid, 4);
+                UIManager.updatePrice("hbdusdprice", prices.hbd);
+                return prices.hbd;
+            }
+            throw new Utils.APIError('Internal market price unavailable');
+        } catch (error) {
+            console.warn('HBD price from the internal market failed, using CoinGecko:', error.message);
+        }
+
         try {
             const data = await Utils.retry(() =>
                 fetchCoinGecko(CONFIG.COINGECKO_HBD_URL),
@@ -120,11 +143,9 @@ const MarketManager = (function() {
         }
         
         try {
-            // Fetch in parallel for better performance
-            await Promise.all([
-                fetchHivePrice(),
-                fetchHBDPrice()
-            ]);
+            // HIVE first - the HBD price is derived from it
+            await fetchHivePrice();
+            await fetchHBDPrice();
 
             priceCache.lastFetch = now;
             console.log("Market prices updated:", prices);
