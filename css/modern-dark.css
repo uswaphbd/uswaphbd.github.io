@@ -1,0 +1,2265 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Fix HBD Swap button text/icon alignment */
+.navbar .btn-outline-primary {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* ========================================
+   ROOT VARIABLES
+   ======================================== */
+:root {
+    --primary-color: #E33C3A;
+    --primary-gradient: linear-gradient(135deg, #E33C3A 0%, #FF6B69 100%);
+    --secondary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+    
+    --bg-dark: #0a0e27;
+    --bg-darker: #060918;
+    --bg-lighter: #141933;
+    
+    --glass-bg: rgba(15, 19, 34, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    
+    --text-primary: #ffffff;
+    --text-secondary: #a0aec0;
+    --text-muted: #718096;
+    
+    --input-bg: rgba(15, 18, 39, 0.8);
+    --input-border: rgba(255, 255, 255, 0.1);
+    --input-focus: rgba(227, 60, 58, 0.3);
+    
+    --card-bg: rgba(16, 20, 41, 0.6);
+    --card-hover: rgba(17, 19, 31, 0.8);
+
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --border-radius: 16px;
+    --border-radius-sm: 12px;
+    --border-radius-lg: 20px;
+
+    /* Theme-dependent overlay tints & shadows (kept as tokens so the light
+       theme below can flip every "white overlay on dark bg" trick to a
+       matching "dark overlay on light bg" one) */
+    --overlay-1: rgba(255, 255, 255, 0.02);
+    --overlay-2: rgba(255, 255, 255, 0.03);
+    --overlay-3: rgba(255, 255, 255, 0.05);
+    --overlay-4: rgba(255, 255, 255, 0.08);
+    --overlay-scrim: rgba(0, 0, 0, 0.8);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+    --primary-color-light: #FF6B69;
+
+    --shadow-navbar: 0 4px 30px rgba(0, 0, 0, 0.1);
+    --shadow-card-hover: 0 12px 48px 0 rgba(0, 0, 0, 0.5);
+    --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.5);
+    --shadow-qr: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* ========================================
+   LIGHT THEME
+   Toggled via data-theme="light" on <html> (see js/ui.js setTheme()).
+   Overrides only the tokens above - every rule in this file is written
+   against variables, so no other selector needs to know about themes.
+   ======================================== */
+:root[data-theme="light"] {
+    --bg-dark: #eef1f8;
+    --bg-darker: #f7f8fc;
+    --bg-lighter: #e3e7f0;
+
+    --glass-bg: rgba(255, 255, 255, 0.75);
+    --glass-border: rgba(15, 23, 42, 0.08);
+    --glass-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.08);
+
+    --text-primary: #14172b;
+    --text-secondary: #4b5468;
+    --text-muted: #7c839a;
+
+    --input-bg: rgba(255, 255, 255, 0.9);
+    --input-border: rgba(15, 23, 42, 0.1);
+    --input-focus: rgba(227, 60, 58, 0.15);
+
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --card-hover: rgba(244, 245, 250, 0.95);
+
+    --overlay-1: rgba(15, 23, 42, 0.03);
+    --overlay-2: rgba(15, 23, 42, 0.04);
+    --overlay-3: rgba(15, 23, 42, 0.06);
+    --overlay-4: rgba(15, 23, 42, 0.09);
+    --overlay-scrim: rgba(15, 23, 42, 0.5);
+    --border-hover: rgba(15, 23, 42, 0.18);
+    --border-subtle: rgba(15, 23, 42, 0.08);
+    --scrollbar-thumb-hover: rgba(15, 23, 42, 0.25);
+
+    --shadow-navbar: 0 4px 20px rgba(15, 23, 42, 0.06);
+    --shadow-card-hover: 0 12px 36px 0 rgba(15, 23, 42, 0.12);
+    --shadow-dropdown: 0 8px 20px rgba(15, 23, 42, 0.14);
+    --shadow-modal: 0 20px 50px rgba(15, 23, 42, 0.18);
+    --shadow-qr: 0 4px 16px rgba(15, 23, 42, 0.1);
+}
+
+/* ========================================
+   GLOBAL STYLES
+   ======================================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    /* was 80px to clear the previously-fixed footer, which is now static */
+    padding-bottom: 0;
+    background: var(--bg-darker); /* solid dark background */
+    color: var(--text-primary);
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+
+::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+}
+
+/* ========================================
+   NAVIGATION
+   ======================================== */
+.navbar {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+}
+
+/* Bootstrap scopes this to >=992px; the unscoped override was forcing nowrap on
+   phones too, so the theme/HBD controls shot off the right edge (66px of
+   horizontal scroll at 360px wide). Scoped back to desktop. */
+@media (min-width: 1200px) {
+    .navbar-expand-lg {
+        flex-flow: row nowrap;
+        justify-content: flex-start;
+    }
+}
+
+.navbar-brand {
+    display: inline-block;
+    padding-top: 0.3125rem;
+    padding-bottom: 0.3125rem;
+    margin-right: 1rem;
+    font-size: 1.25rem;
+    line-height: inherit;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.px-4 {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+}
+
+.navbar-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-navbar);
+    padding: 0.5rem 0;
+}
+
+.nav-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    transition: var(--transition);
+}
+
+.nav-logo:hover {
+    transform: scale(1.05) rotate(5deg);
+}
+
+.brand-title {
+    font-size: 20px;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.brand-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    display: flex;
+    gap: 8px;
+    background: var(--input-bg);
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid var(--input-border);
+}
+
+.theme-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.theme-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: scale(1.05);
+}
+
+.theme-btn.active {
+    background: var(--primary-gradient);
+    color: white;
+}
+
+.theme-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* ========================================
+   MAIN CONTAINER
+   ======================================== */
+.main-container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* Ensure proper column layout with smaller gaps */
+.row.g-2 {
+    --bs-gutter-x: 0.5rem;
+    --bs-gutter-y: 0.5rem;
+}
+
+.row.g-4 {
+    --bs-gutter-x: 0.75rem;
+    --bs-gutter-y: 0.75rem;
+}
+
+/* Gap utilities for flex containers */
+.gap-3 {
+    gap: 1rem !important;
+}
+
+/* ========================================
+   GLASS CARDS
+   ======================================== */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    transition: var(--transition);
+    overflow: hidden;
+}
+
+.glass-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+}
+
+.card-header-custom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--glass-border);
+    background: var(--overlay-1);
+    /* kept a fixed height so the three columns' headers stay aligned */
+    min-height: 60px;
+    height: 60px;
+    box-sizing: border-box;
+}
+
+.card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+.card-title svg {
+    opacity: 0.8;
+}
+
+.card-body-custom {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+/* ========================================
+   BUTTONS
+   ======================================== */
+.btn {
+    font-weight: 500;
+    border-radius: var(--border-radius-sm);
+    padding: 6px 16px;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+.btn:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.btn-gradient {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 15px rgba(227, 60, 58, 0.3);
+}
+
+#checkbalance.btn-gradient {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 8px 18px;
+}
+
+.btn-gradient:hover {
+    box-shadow: 0 6px 25px rgba(227, 60, 58, 0.5);
+    transform: translateY(-2px);
+}
+
+.btn-gradient:active {
+    transform: translateY(0);
+}
+
+.btn-gradient:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-lg {
+    padding: 8px 18px;
+    font-size: 14px;
+}
+
+.btn-outline-primary {
+    background: transparent;
+    border: 1.5px solid var(--primary-color);
+    color: var(--primary-color);
+    padding: 5px 14px;
+    font-size: 13px;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-refresh {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-refresh:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: rotate(90deg);
+}
+
+/* ========================================
+   INPUTS & FORMS
+   ======================================== */
+.input-group {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    width: 100%;
+}
+
+.input-group > .form-control {
+    position: relative;
+    flex: 1 1 auto;
+    width: 1%;
+    min-width: 0;
+}
+
+.input-group-text {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    text-align: center;
+    white-space: nowrap;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--border-radius-sm);
+}
+
+.input-group > .input-group-text:not(:last-child) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.input-group > .form-control:not(:first-child) {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.form-control, .form-select {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
+    border-radius: var(--border-radius-sm);
+    padding: 6px 10px;
+    font-size: 13px;
+    transition: var(--transition);
+    line-height: 1.4;
+}
+
+.form-control:focus, .form-select:focus {
+    background: var(--input-bg);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--input-focus);
+    outline: none;
+    color: var(--text-primary);
+}
+
+.form-control::placeholder {
+    color: var(--text-muted);
+}
+
+.input-group-text {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text-secondary);
+    border-radius: var(--border-radius-sm) 0 0 var(--border-radius-sm);
+    font-weight: 500;
+}
+
+/* Ensure input group items connect properly */
+.input-group .form-control {
+    border-radius: 0 var(--border-radius-sm) var(--border-radius-sm) 0;
+}
+
+.input-group .input-group-text + .form-control {
+    border-left: none;
+}
+
+/* ========================================
+   WALLET SECTION
+   ======================================== */
+.balance-display {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.balance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px;
+    background: var(--input-bg);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--input-border);
+    transition: var(--transition);
+}
+
+.balance-item:hover {
+    background: var(--card-hover);
+    border-color: var(--border-hover);
+    transform: translateX(4px);
+}
+
+.balance-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.balance-amount {
+    font-size: 15px;
+    font-weight: 700;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    cursor: pointer;
+    transition: var(--transition);
+    user-select: none;
+}
+
+.balance-amount:hover {
+    transform: scale(1.05);
+    filter: brightness(1.2);
+}
+
+/* ========================================
+   SWAP INTERFACE
+   ======================================== */
+.minimum-badge {
+    background: var(--input-bg);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    border: 1px solid var(--input-border);
+}
+
+.minimum-badge span {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Banner shown when swapping is blocked (operator pause, or bridge
+   liquidity under the configured minimum) */
+.swap-blocked-notice {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid var(--danger-color);
+    border-radius: var(--border-radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 0.75rem;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--danger-color);
+    text-align: center;
+}
+
+.swap-input-container {
+    margin-bottom: 0.75rem;
+}
+
+.swap-label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.swap-input-wrapper {
+    display: flex;
+    gap: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--border-radius-sm);
+    padding: 5px;
+    transition: var(--transition);
+}
+
+.swap-input-wrapper:focus-within {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--input-focus);
+}
+
+.swap-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 8px;
+    outline: none;
+}
+
+.swap-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Hide native select */
+.token-select {
+    display: none;
+}
+
+/* Custom Select Wrapper */
+.custom-select-wrapper {
+    position: relative;
+    min-width: 130px;
+}
+
+/* Custom Select Button */
+.custom-select-button {
+    background: var(--overlay-3);
+    border: 1px solid var(--input-border);
+    color: var(--text-primary);
+    padding: 8px 35px 8px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: var(--transition);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.custom-select-button::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-size: contain;
+    transition: transform 0.3s ease;
+}
+
+.custom-select-button.active::after {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.custom-select-button:hover {
+    background-color: var(--overlay-4);
+}
+
+.custom-select-button:focus,
+.custom-select-button.active {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.custom-select-button.active::after {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E33C3A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.custom-select-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Custom Select Dropdown */
+.custom-select-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-darker);
+    border: 1px solid var(--primary-color);
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    box-shadow: var(--shadow-dropdown);
+}
+
+.custom-select-dropdown.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: all;
+}
+
+/* Custom Select Option */
+.custom-select-option {
+    padding: 10px 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.custom-select-option:hover {
+    background-color: rgba(227, 60, 58, 0.1);
+}
+
+.custom-select-option.selected {
+    background-color: rgba(227, 60, 58, 0.2);
+    font-weight: 600;
+}
+
+/* Swap Reverse Button */
+.swap-reverse-container {
+    display: flex;
+    justify-content: center;
+    margin: -8px 0;
+    position: relative;
+    z-index: 1;
+}
+
+.swap-reverse-btn {
+    background: var(--glass-bg);
+    border: 2px solid var(--glass-border);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-secondary);
+    backdrop-filter: blur(10px);
+}
+
+.swap-reverse-btn:hover {
+    background: var(--primary-gradient);
+    border-color: var(--primary-color);
+    color: white;
+    transform: rotate(180deg) scale(1.1);
+    box-shadow: 0 4px 15px rgba(227, 60, 58, 0.4);
+}
+
+/* Fee Info */
+.fee-info-box {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: var(--border-radius-sm);
+    padding: 10px 14px;
+    margin-top: 0.75rem;
+}
+
+.fee-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+.fee-info-row > span:first-child {
+    color: var(--text-secondary);
+}
+
+.fee-info-value {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* ========================================
+   SLIPPAGE SECTION
+   ======================================== */
+.slippage-section {
+    margin-top: 0.75rem;
+}
+
+.section-subtitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.slippage-options {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.slippage-option {
+    flex: 1;
+    min-width: 80px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.slippage-option input[type="radio"] {
+    display: none;
+}
+
+.slippage-option span {
+    display: block;
+    padding: 6px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    line-height: 1.4;
+}
+
+.slippage-option input[type="radio"]:checked ~ span {
+    background: var(--primary-gradient);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(227, 60, 58, 0.3);
+}
+
+.slippage-option:hover span {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.no-minimum-check {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 0;
+}
+
+.no-minimum-check .form-check-input {
+    margin-left: 0;
+    background-color: var(--input-bg);
+    border-color: var(--input-border);
+    cursor: pointer;
+}
+
+.no-minimum-check .form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.no-minimum-check .form-check-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.min-receive-info {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--input-bg);
+    border-radius: 8px;
+    transition: var(--transition);
+}
+
+.min-receive-info.text-muted {
+    opacity: 0.5;
+}
+
+.min-receive-value {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* ========================================
+   AUTHENTICATION METHOD
+   ======================================== */
+.auth-method-section {
+    margin-top: 0.75rem;
+}
+
+.auth-methods {
+    display: flex;
+    gap: 12px;
+}
+
+.auth-method {
+    flex: 1;
+    margin: 0;
+    cursor: pointer;
+}
+
+.auth-method input[type="radio"] {
+    display: none;
+}
+
+.auth-method-card {
+    display: flex;
+    /* icon beside the label rather than above it - saves ~25px of height so the
+       SWAP button stays above the fold on laptop screens */
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--input-bg);
+    border: 2px solid var(--input-border);
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition);
+}
+
+.auth-method input[type="radio"]:checked ~ .auth-method-card {
+    background: rgba(227, 60, 58, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 12px rgba(227, 60, 58, 0.2);
+}
+
+.auth-method:hover .auth-method-card {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.auth-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.auth-method-card span {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.auth-method input[type="radio"]:checked ~ .auth-method-card span {
+    color: var(--primary-color);
+}
+
+/* ========================================
+   FEE INFO TABLE
+   ======================================== */
+.info-section {
+    margin-top: 1rem;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.section-title svg {
+    opacity: 0.7;
+}
+
+.fee-table {
+    background: var(--input-bg);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--input-border);
+}
+
+.fee-row-header {
+    padding: 12px 16px;
+    background: var(--overlay-2);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--input-border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fee-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.fee-row:last-child {
+    border-bottom: none;
+}
+
+.fee-row span:first-child {
+    color: var(--text-secondary);
+}
+
+.fee-value {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* ========================================
+   DIVIDER
+   ======================================== */
+.divider {
+    height: 1px;
+    background: var(--glass-border);
+    margin: 0.75rem 0;
+}
+
+/* ========================================
+   LINKS
+   ======================================== */
+.links-section {
+    margin-top: 1rem;
+}
+
+.info-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.info-link:hover {
+    color: var(--primary-color-light);
+    transform: translateX(4px);
+}
+
+.social-links {
+    display: flex;
+    gap: 12px;
+}
+
+.social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    color: var(--text-secondary);
+    transition: var(--transition);
+}
+
+.social-link:hover {
+    background: var(--primary-gradient);
+    border-color: var(--primary-color);
+    color: white;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(227, 60, 58, 0.3);
+}
+
+.social-link svg {
+    fill: currentColor;
+}
+
+/* ========================================
+   LIQUIDITY SECTION
+   ======================================== */
+.liquidity-info {
+    margin-bottom: 1rem;
+}
+
+.liquidity-account {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.liquidity-amounts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.liquidity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: var(--input-bg);
+    border-radius: 10px;
+    border: 1px solid var(--input-border);
+}
+
+.liquidity-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.liquidity-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.info-box {
+    background: rgba(227, 60, 58, 0.1);
+    border: 1px solid rgba(227, 60, 58, 0.3);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+}
+
+.info-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.info-text strong {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* ========================================
+   MARKET INFO
+   ======================================== */
+.market-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--input-bg);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--input-border);
+    transition: var(--transition);
+}
+
+.market-item:hover {
+    background: var(--card-hover);
+    border-color: var(--border-hover);
+    transform: translateX(4px);
+}
+
+.market-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.market-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+}
+
+.market-price {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+/* ========================================
+   HISTORY SECTION
+   ======================================== */
+.history-table-wrapper {
+    overflow-x: auto;
+    border-radius: var(--border-radius-sm);
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.history-table thead {
+    background: var(--overlay-2);
+}
+
+.history-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.history-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+}
+
+.history-table tbody tr {
+    transition: var(--transition);
+}
+
+.history-table tbody tr:hover {
+    background: var(--overlay-2);
+}
+
+/* ========================================
+   STATUS & LOADING
+   ======================================== */
+.status-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+}
+
+.status-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.spinner-border {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    vertical-align: text-bottom;
+    border: 0.25em solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border 0.75s linear infinite;
+}
+
+.spinner-border-sm {
+    width: 20px;
+    height: 20px;
+    border-width: 0.2em;
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+@keyframes spinner-border {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ========================================
+   FOOTER
+   ======================================== */
+/* Static rather than fixed: a fixed footer permanently stole ~65px of every
+   viewport, which was pushing the SWAP button below the fold. Nothing in here
+   (credits + node pickers) needs to be on screen at all times. */
+.app-footer {
+    position: static;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    padding: 0.75rem 0;
+    margin-top: 1rem;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.footer-credit {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.footer-credit a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.footer-credit a:hover {
+    color: var(--primary-color-light);
+}
+
+.footer-versions {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.footer-versions .version-item span {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.footer-versions .version-sep {
+    opacity: 0.4;
+}
+
+@media (max-width: 575px) {
+    /* Stack the two versions rather than letting the separator dangle */
+    .footer-versions .version-sep {
+        display: none;
+    }
+
+    .footer-versions {
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+    }
+}
+
+.footer-nodes {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.node-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.node-selector span {
+    color: var(--text-secondary);
+}
+
+.node-btn {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--primary-color);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: var(--transition);
+    font-weight: 500;
+}
+
+.node-btn:hover {
+    background: var(--card-hover);
+    border-color: var(--primary-color);
+}
+
+/* ========================================
+   NODE POPUP
+   ======================================== */
+.node-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--overlay-scrim);
+    backdrop-filter: blur(10px);
+    display: none; /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    padding-top: 80px; /* Add space from top navbar */
+    overflow-y: auto;
+}
+
+/* When shown, use flex to center */
+.node-popup[style*="display: flex"],
+.node-popup.show {
+    display: flex !important;
+}
+
+.node-popup-content {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    padding: 0; /* Remove padding, add to header/table instead */
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow: visible; /* Allow sticky to work */
+    position: relative;
+    box-shadow: var(--shadow-modal);
+    margin: auto; /* Additional centering */
+    /* Ensure content stays centered even when scrolling parent */
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.node-popup-content h4 {
+    margin: 0;
+    padding: 1.5rem 2rem;
+    color: var(--text-primary);
+    font-size: 20px;
+    background: var(--glass-bg);
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: var(--border-radius) var(--border-radius) 0 0; /* Round top corners */
+    position: relative; /* Fixed positioning instead of sticky */
+    z-index: 10;
+    flex-shrink: 0; /* Prevent header from shrinking */
+    backdrop-filter: blur(20px); /* Ensure glass effect on header */
+}
+
+/* Popup Error Message */
+.popup-error-message {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--danger-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 1rem;
+    color: var(--danger-color);
+    font-size: 14px;
+    line-height: 1.5;
+    animation: slideDown 0.3s ease-out;
+}
+
+.popup-error-message::before {
+    content: "⚠️ ";
+    margin-right: 6px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.node-table-wrapper {
+    overflow-y: auto;
+    overflow-x: auto;
+    flex: 1; /* Take remaining space */
+    padding: 0 2rem 1.5rem 2rem; /* Add padding inside wrapper */
+    border-radius: 0 0 var(--border-radius) var(--border-radius); /* Round bottom corners */
+}
+
+.node-popup table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.node-popup thead {
+    background: var(--overlay-2);
+}
+
+.node-popup th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.node-popup td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.node-popup tbody tr:hover {
+    background: var(--overlay-3);
+}
+
+.node-popup td.working {
+    color: var(--success-color);
+}
+
+.node-popup td.fail {
+    color: var(--danger-color);
+}
+
+.node-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-secondary);
+    z-index: 11; /* Stay above sticky header */
+}
+
+.node-close-btn:hover {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    color: white;
+}
+
+.node-close-btn svg {
+    fill: currentColor;
+}
+
+/* Node action buttons */
+.btn-remove-node {
+    transition: var(--transition);
+}
+
+.btn-remove-node:hover {
+    background: #dc2626 !important;
+    transform: scale(1.1);
+}
+
+.btn-add-node {
+    transition: var(--transition);
+}
+
+.btn-add-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(227, 60, 58, 0.4);
+}
+
+.btn-add-node:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+/* Add node row styling */
+.add-node-row {
+    position: sticky;
+    bottom: 0;
+    background: var(--overlay-3) !important;
+    border-top: 2px solid var(--glass-border) !important;
+}
+
+.add-node-row td {
+    border-bottom: none !important;
+}
+
+/* ========================================
+   MODAL
+   ======================================== */
+.modal-content {
+    background: transparent;
+    border: none;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-modal);
+}
+
+.p-4 {
+    padding: 1.5rem !important;
+}
+
+.modal-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.modal-subtext {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.qr-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: var(--border-radius-sm);
+    display: inline-block;
+    box-shadow: var(--shadow-qr);
+}
+
+.qr-image {
+    display: block;
+    max-width: 200px;
+    height: auto;
+}
+
+.success-icon {
+    color: var(--success-color);
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+/* Large screens (desktops, 1200px and up) - Show all 3 columns */
+@media (min-width: 1200px) {
+    .main-container {
+        padding: 1rem 2rem;
+    }
+}
+
+/* Medium-Large screens (laptops, 992px to 1199px) - Show 2 columns side by side */
+@media (max-width: 1199px) and (min-width: 992px) {
+    .main-container {
+        padding: 1.5rem 1rem;
+    }
+    
+    /* On laptops, stack the right column below */
+    .col-lg-12 {
+        margin-top: 1rem;
+    }
+}
+
+/* Medium screens (tablets, below 992px) - Stack all columns */
+@media (max-width: 991px) {
+    .main-container {
+        padding: 1rem 0.75rem;
+    }
+
+    .footer-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .footer-nodes {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .brand-title {
+        font-size: 20px;
+    }
+
+    .nav-logo {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .glass-card {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .swap-input {
+        font-size: 20px;
+    }
+
+    .token-select {
+        min-width: 120px;
+        font-size: 14px;
+    }
+
+    .slippage-options {
+        gap: 6px;
+    }
+
+    .slippage-option {
+        min-width: 70px;
+    }
+
+    .auth-methods {
+        flex-direction: column;
+    }
+
+    .card-header-custom {
+        padding: 1rem;
+    }
+
+    .card-body-custom {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .swap-input-wrapper {
+        flex-direction: column;
+    }
+
+    .token-select {
+        width: 100%;
+    }
+
+    .minimum-badge {
+        font-size: 12px;
+    }
+
+    .brand-title {
+        font-size: 18px;
+    }
+
+    .brand-subtitle {
+        font-size: 10px;
+    }
+    
+    /* Node popup adjustments for mobile */
+    .node-popup {
+        padding: 0.5rem;
+        align-items: flex-start;
+        padding-top: 70px; /* Enough space to clear mobile navbar */
+    }
+    
+    .node-popup-content {
+        max-height: calc(90vh - 70px); /* Account for navbar space */
+    }
+    
+    .node-popup-content h4 {
+        font-size: 18px;
+        padding: 1rem 1.5rem;
+    }
+    
+    .node-table-wrapper {
+        padding: 0 1.5rem 1rem 1.5rem;
+    }
+}
+
+/* ========================================
+   SHORT VIEWPORTS (laptops ~768px tall and under)
+   Tightens the swap card's vertical rhythm so the SWAP button stays reachable
+   without scrolling. Taller screens keep the roomier default spacing above.
+   ======================================== */
+@media (max-height: 820px) {
+    .main-container,
+    .navbar-glass {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .nav-logo {
+        width: 34px;
+        height: 34px;
+    }
+
+    .card-header-custom {
+        min-height: 50px;
+        height: 50px;
+        padding: 0.5rem 1rem;
+    }
+
+    .card-body-custom {
+        padding: 0.75rem 1rem 1rem;
+    }
+
+    .divider {
+        margin: 0.5rem 0;
+    }
+
+    .swap-input-container {
+        margin-bottom: 0.5rem;
+    }
+
+    .swap-input-wrapper {
+        padding: 3px;
+    }
+
+    .swap-input {
+        font-size: 14px;
+        padding: 6px;
+    }
+
+    .swap-reverse-btn {
+        width: 38px;
+        height: 38px;
+    }
+
+    .swap-reverse-container {
+        margin: -6px 0;
+    }
+
+    .fee-info-box {
+        padding: 6px 12px;
+        margin-top: 0.5rem;
+    }
+
+    .slippage-section,
+    .auth-method-section {
+        margin-top: 0.5rem;
+    }
+
+    .section-subtitle {
+        margin-bottom: 6px;
+    }
+
+    .slippage-option span {
+        padding: 4px 10px;
+    }
+
+    .no-minimum-check {
+        margin-top: 8px;
+    }
+
+    .min-receive-info {
+        margin-top: 8px;
+        padding: 8px 10px;
+    }
+
+    .auth-method-card {
+        padding: 7px 10px;
+    }
+
+    .auth-icon {
+        width: 24px;
+        height: 24px;
+    }
+
+    .status-container {
+        min-height: 24px;
+    }
+}
+
+/* ========================================
+   MOBILE & TABLET
+   Placed after the short-viewport rules above so it wins on phones held in
+   landscape (where both a small width and a short height apply).
+   ======================================== */
+@media (max-width: 1199px) {
+    /* Three cramped columns (256px each at ~1030px) read far worse than one
+       clear column, so the 3-column layout is reserved for >=1200px. Below
+       that the columns stack, and the content is capped and centred rather
+       than stretching a single card across a ~960px tablet. */
+    .main-container {
+        max-width: 860px;
+    }
+
+    .row.g-2 > [class*="col-"] {
+        flex: 0 0 100%;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .navbar-expand-lg {
+        flex-wrap: wrap;
+    }
+
+    /* Header centres on phones and tablets: the brand takes the full row and
+       the theme/HBD controls centre on the row beneath it. Wider screens keep
+       the brand in the left corner with the controls pushed right. */
+    .navbar .container-fluid {
+        flex-wrap: wrap;
+        justify-content: center;
+        row-gap: 0.5rem;
+    }
+
+    .navbar-brand {
+        margin-right: 0;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .navbar .d-flex.ms-auto {
+        margin-left: 0 !important;
+        justify-content: center;
+        width: 100%;
+    }
+
+    /* iOS Safari force-zooms the page when a focused input is under 16px */
+    .form-control,
+    .swap-input,
+    input[type="text"],
+    input[type="number"] {
+        font-size: 16px;
+    }
+
+    /* Tables stay readable by scrolling inside their card rather than
+       stretching the page */
+    .history-table {
+        min-width: 520px;
+    }
+
+    /* Footer centres to match the header. NOTE: the earlier max-width:991px
+       block sets flex-direction: column + align-items: flex-start, so
+       align-items MUST be overridden here - on a column flex the
+       justify-content below controls the vertical axis, not the horizontal. */
+    .footer-content {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .footer-nodes {
+        align-items: center;
+        justify-content: center;
+    }
+
+    .node-selector,
+    .footer-versions {
+        justify-content: center;
+    }
+
+    .node-btn {
+        /* Wrap rather than clip - the ellipsis version cut the endpoint
+           short ("...rishipanthee" with the .com missing) because
+           max-width:100% resolves against a shrink-to-fit flex parent. */
+        max-width: 100%;
+        white-space: normal;
+        word-break: break-all;
+        text-align: center;
+    }
+
+    /* Tap targets. Duplicated from the `pointer: coarse` block below on purpose:
+       this one is width-based, so it still applies on browsers with poor
+       pointer-media support and on small desktop windows. */
+    #swap,
+    #checkbalance,
+    .btn-lg,
+    .node-btn {
+        min-height: 44px;
+    }
+
+    .btn-refresh,
+    .theme-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .swap-reverse-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .slippage-option span {
+        min-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .auth-method-card {
+        min-height: 48px;
+    }
+}
+
+@media (max-width: 575px) {
+    /* Full-width node picker on phones */
+    .node-popup-content {
+        max-width: 100%;
+    }
+
+    .theme-btn {
+        padding: 8px 10px;
+    }
+
+    .slippage-option {
+        min-width: 60px;
+    }
+}
+
+/* Touch devices: meet the 44px minimum tap target regardless of viewport size */
+@media (pointer: coarse) {
+    .btn,
+    #swap,
+    #checkbalance,
+    .node-btn {
+        min-height: 44px;
+    }
+
+    .btn-refresh,
+    .theme-btn,
+    .node-close-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .swap-reverse-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .slippage-option span,
+    .auth-method-card {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .no-minimum-check .form-check-input {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Keep inputs at 16px on touch even in landscape, where the short-viewport
+       block above would otherwise shrink them and trigger iOS zoom */
+    .form-control,
+    .swap-input,
+    input[type="text"],
+    input[type="number"] {
+        font-size: 16px;
+    }
+}
+
+/* Very short viewports (e.g. 1280x720) - trim a little further */
+@media (max-height: 690px) {
+    .card-header-custom {
+        min-height: 44px;
+        height: 44px;
+    }
+
+    .divider {
+        margin: 0.375rem 0;
+    }
+
+    .fee-info-box {
+        margin-top: 0.375rem;
+        padding: 5px 10px;
+    }
+
+    .status-container {
+        min-height: 0;
+    }
+}
+
+/* ========================================
+   UTILITIES
+   ======================================== */
+.d-none {
+    display: none !important;
+}
+
+.d-flex {
+    display: flex !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.text-danger {
+    color: var(--danger-color) !important;
+}
+
+.text-success {
+    color: var(--success-color) !important;
+}
+
+.gap-3 {
+    gap: 1rem !important;
+}
+
+/* Bootstrap's .g-* are GUTTER utilities - column padding plus a negative row
+   margin - NOT a flexbox `gap`. A real `gap` is added on top of the column
+   widths, so `50% + gap + 50% > 100%` and the second column wraps to its own
+   line. That is what stopped HIVE History and SWAP.HIVE History sitting side
+   by side. Implemented here the same way the rest of this grid works. */
+.row.g-4 {
+    row-gap: 1.5rem; /* vertical only - safe, applies when columns do stack */
+    /* must not exceed .container-fluid's 0.5rem side padding, or the row pokes
+       outside the viewport and creates a horizontal scrollbar on phones */
+    margin-right: -0.5rem;
+    margin-left: -0.5rem;
+}
+
+.row.g-4 > [class*="col-"] {
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+}
+
+.align-items-center {
+    align-items: center !important;
+}
+
+.justify-content-center {
+    justify-content: center !important;
+}
+
+.justify-content-between {
+    justify-content: space-between !important;
+}
+
+.flex-column {
+    flex-direction: column !important;
+}
+
+.flex-wrap {
+    flex-wrap: wrap !important;
+}
+
+.flex-grow-1 {
+    flex-grow: 1 !important;
+}
+
+.mt-2 { margin-top: 0.5rem !important; }
+.mt-3 { margin-top: 1rem !important; }
+.mt-4 { margin-top: 1.5rem !important; }
+.mb-2 { margin-bottom: 0.5rem !important; }
+.mb-3 { margin-bottom: 1rem !important; }
+.mb-4 { margin-bottom: 1.5rem !important; }
+.ms-2 { margin-left: 0.5rem !important; }
+.ms-3 { margin-left: 1rem !important; }
+.me-1 { margin-right: 0.25rem !important; }
+.me-2 { margin-right: 0.5rem !important; }
+.m-0 { margin: 0 !important; }
+.mb-0 { margin-bottom: 0 !important; }
+
+.w-100 {
+    width: 100% !important;
+}
+
+.h-100 {
+    height: 100% !important;
+}
+
+/* Bootstrap Grid Support */
+.container-fluid {
+    width: 100%;
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -0.25rem;
+    margin-left: -0.25rem;
+}
+
+.col-xl-3,
+.col-xl-6,
+.col-lg-3,
+.col-lg-4,
+.col-lg-6,
+.col-lg-8,
+.col-lg-12,
+.col-md-6,
+.col-md-12,
+.col-12 {
+    position: relative;
+    width: 100%;
+    min-width: 0; /* let flex items shrink below their content's natural width -
+                     without this, a wide table (like the history tables) forces
+                     the column past its max-width and the sibling wraps below it */
+    padding-right: 0.25rem;
+    padding-left: 0.25rem;
+}
+
+@media (min-width: 768px) {
+    .col-md-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    .col-md-12 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+@media (min-width: 992px) {
+    .col-lg-3 {
+        flex: 0 0 25%;
+        max-width: 25%;
+    }
+    .col-lg-4 {
+        flex: 0 0 33.333333%;
+        max-width: 33.333333%;
+    }
+    .col-lg-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+    .col-lg-8 {
+        flex: 0 0 66.666667%;
+        max-width: 66.666667%;
+    }
+    .col-lg-12 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+@media (min-width: 1200px) {
+    .col-xl-3 {
+        flex: 0 0 25%;
+        max-width: 25%;
+    }
+    .col-xl-6 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.glass-card {
+    animation: fadeIn 0.4s ease-out;
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Swap Hive Dollar</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .pass {
+            background: #2d5016;
+        }
+        .fail {
+            background: #5d1616;
+        }
+    </style>
+</head>
+<body>
+    <h1>Module Load Test</h1>
+    <div id="results"></div>
+    
+    <!-- Libraries (same set and order as index.html, minus Bootstrap) -->
+    <script src="./libs/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="./libs/@hiveio/hive-js/dist/hive.min.js"></script>
+    <script src="./libs/axios/dist/axios.min.js"></script>
+    <script src="./libs/sscjs@latest/dist/ssc.min.js"></script>
+    <script src="./libs/ajax/libs/uuid/8.1.0/uuidv4.min.js"></script>
+    <script src="./libs/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+    <!-- Application Modules - same order as index.html (order matters!).
+         main.js is deliberately NOT loaded: it boots the whole app on window
+         load (network calls, alert() on failure) and rewrites the URL to "/".
+         This page only checks that every module loads and exposes its API. -->
+    <script src="js/utils.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/apiManager.js"></script>
+    <script src="js/hiveauth.js"></script>
+    <script src="js/wallet.js"></script>
+    <script src="js/market.js"></script>
+    <script src="js/bridgeHistory.js"></script>
+    <script src="js/swap.js"></script>
+    <script src="js/ui.js"></script>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function test(name, condition) {
+            let pass;
+            try {
+                pass = typeof condition === 'function' ? !!condition() : !!condition;
+            } catch (error) {
+                pass = false;
+                name += ' (threw: ' + error.message + ')';
+            }
+            const div = document.createElement('div');
+            div.className = 'test-result ' + (pass ? 'pass' : 'fail');
+            div.textContent = (pass ? '✓' : '✗') + ' ' + name;
+            results.appendChild(div);
+        }
+
+        // Test library loading
+        test('jQuery loaded', typeof $ !== 'undefined');
+        test('Hive.js loaded', typeof hive !== 'undefined');
+        test('Axios loaded', typeof axios !== 'undefined');
+        test('SSC loaded', typeof SSC !== 'undefined');
+        test('uuidv4 loaded', typeof uuidv4 === 'function');
+        test('CryptoJS loaded', typeof CryptoJS !== 'undefined');
+
+        // Test module loading
+        test('Utils defined', typeof Utils !== 'undefined');
+        test('CONFIG defined', typeof CONFIG !== 'undefined');
+        test('APIManager defined', typeof APIManager !== 'undefined');
+        test('window.apiManager defined', typeof window.apiManager !== 'undefined');
+        test('HiveAuthManager defined', typeof HiveAuthManager !== 'undefined');
+        test('WalletManager defined', typeof WalletManager !== 'undefined');
+        test('MarketManager defined', typeof MarketManager !== 'undefined');
+        test('BridgeHistoryManager defined', typeof BridgeHistoryManager !== 'undefined');
+        test('SwapManager defined', typeof SwapManager !== 'undefined');
+        test('UIManager defined', typeof UIManager !== 'undefined');
+
+        // Test module methods
+        test('CONFIG has HIVE_RPC_NODES', () => Array.isArray(CONFIG.HIVE_RPC_NODES));
+        test('CONFIG has ENGINE_RPC_NODES', () => Array.isArray(CONFIG.ENGINE_RPC_NODES));
+        test('APIManager has initialize', () => typeof APIManager.initialize === 'function');
+        test('HiveAuthManager has requestTransfer', () => typeof HiveAuthManager.requestTransfer === 'function');
+        test('WalletManager has loadBalance', () => typeof WalletManager.loadBalance === 'function');
+        test('MarketManager has initialize', () => typeof MarketManager.initialize === 'function');
+        test('BridgeHistoryManager has fetchHistory', () => typeof BridgeHistoryManager.fetchHistory === 'function');
+        test('SwapManager has executeSwap', () => typeof SwapManager.executeSwap === 'function');
+        test('UIManager has showLoading', () => typeof UIManager.showLoading === 'function');
+
+        // Pure helpers
+        test('escapeHtml escapes markup', () =>
+            Utils.escapeHtml("<b a=\"1\">&'") === '&lt;b a=&quot;1&quot;&gt;&amp;&#39;');
+        test('extractTxId: string', () => Utils.extractTxId('abc123') === 'abc123');
+        test('extractTxId: {id}', () => Utils.extractTxId({ id: 'abc' }) === 'abc');
+        test('extractTxId: {tx_id}', () => Utils.extractTxId({ tx_id: 'abc' }) === 'abc');
+        test('extractTxId: object without id -> null', () => Utils.extractTxId({ foo: 1 }) === null);
+        test('extractTxId: null -> null', () => Utils.extractTxId(null) === null);
+        test('parseChainTime treats chain time as UTC', () =>
+            Utils.parseChainTime('2026-10-03T00:00:00') === Date.UTC(2026, 9, 3));
+
+        console.log('All tests complete');
+    </script>
+</body>
+</html>

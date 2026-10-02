@@ -1,13 +1,13 @@
 {
-  "background_color": "#000000",
-  "description": "Swap HBD and SWAP.HBD instantly with low fees",
+  "background_color": "#0a0e27",
+  "description": "Revolutionary HBD and SWAP.HBD Bridge - Modern UI",
   "display": "standalone",
-  "name": "USWAP HBD Bridge",
+  "name": "SWAP HIVE DOLLAR",
   "dir": "ltr",
   "orientation": "any",
-  "short_name": "USWAP HBD",
+  "short_name": "SwapHBD",
   "start_url": "index.html",
-  "theme_color": "#e50000",
+  "theme_color": "#E33C3A",
   "categories": [
     "finance",
     "utilities"
@@ -61,6 +61,5 @@
       "type": "image/png",
       "purpose": "maskable any"
     }
-  ],
-  "lang": "en"
+  ]
 }
