@@ -171,6 +171,12 @@ const SwapManager = (function() {
         }
     }
 
+    // True from the moment SWAP NOW is clicked until that swap is finished
+    // (sent and the bridge replied, timed out, or failed). While set, the
+    // button stays disabled and the quote is frozen, so one click can never
+    // turn into two swaps.
+    let swapInProgress = false;
+
     let currentSwap = {
         from: "HBD",
         to: "SWAP.HBD",
@@ -652,7 +658,7 @@ const SwapManager = (function() {
      */
     function markSwapResolved(txIdSent, username, reply) {
         try {
-            const history = JSON.parse(localStorage.getItem(CONFIG.SWAP_HISTORY_KEY) || '[]');
+            const history = readStoredHistory();
             const record = history.find(h => h.txIdSent === txIdSent && h.username === username);
             if (!record) return;
 
@@ -674,7 +680,37 @@ const SwapManager = (function() {
     }
 
     /**
-     * Add swap to history tracking
+     * Read the stored swap history. Never throws: damaged or unavailable
+     * storage reads as an empty history.
+     */
+    function readStoredHistory() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(CONFIG.SWAP_HISTORY_KEY) || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.warn('Swap history in storage is unreadable - ignoring it:', error.message);
+            return [];
+        }
+    }
+
+    /**
+     * Save the swap history. Never throws (full or blocked storage just
+     * means the record is not kept); returns whether it was saved.
+     */
+    function writeStoredHistory(history) {
+        try {
+            localStorage.setItem(CONFIG.SWAP_HISTORY_KEY, JSON.stringify(history));
+            return true;
+        } catch (error) {
+            console.warn('Could not save swap history:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * Add swap to history tracking.
+     * Runs AFTER the funds were sent, so it must never throw - an error here
+     * used to surface as "swap failed" and invite the user to send again.
      */
     function addSwapToHistory(txId, amount, fromToken, username) {
         const swapRecord = {
@@ -690,7 +726,7 @@ const SwapManager = (function() {
         };
 
         // Get existing history from localStorage
-        let history = JSON.parse(localStorage.getItem(CONFIG.SWAP_HISTORY_KEY) || '[]');
+        let history = readStoredHistory();
         
         // Add new record at the beginning
         history.unshift(swapRecord);
@@ -701,10 +737,15 @@ const SwapManager = (function() {
         history = [...userHistory, ...otherHistory];
         
         // Save to localStorage
-        localStorage.setItem(CONFIG.SWAP_HISTORY_KEY, JSON.stringify(history));
+        writeStoredHistory(history);
         
-        // Update UI
-        UIManager.updateSwapHistory();
+        // Update UI (async; a failure here must not reach executeSwap)
+        try {
+            Promise.resolve(UIManager.updateSwapHistory()).catch(error =>
+                console.warn('Could not refresh swap history:', error && error.message));
+        } catch (error) {
+            console.warn('Could not refresh swap history:', error && error.message);
+        }
     }
 
     /**
@@ -744,7 +785,7 @@ const SwapManager = (function() {
     async function loadSwapHistory(username) {
         if (!username) return [];
 
-        let history = JSON.parse(localStorage.getItem(CONFIG.SWAP_HISTORY_KEY) || '[]');
+        let history = readStoredHistory();
         const userHistory = history.filter(h => h.username === username);
         
         // Check status for pending swaps AND re-check completed swaps with old data
@@ -903,12 +944,7 @@ const SwapManager = (function() {
         const key = (h) => [h.username, h.timestamp, h.fromToken, h.amountSent].join('|');
         const updates = new Map(checked.map(h => [key(h), h]));
 
-        let latest;
-        try {
-            latest = JSON.parse(localStorage.getItem(CONFIG.SWAP_HISTORY_KEY) || '[]');
-        } catch (error) {
-            latest = [];
-        }
+        const latest = readStoredHistory();
 
         const merged = latest.map(stored => {
             const update = updates.get(key(stored));
@@ -917,7 +953,7 @@ const SwapManager = (function() {
             return update;
         });
 
-        localStorage.setItem(CONFIG.SWAP_HISTORY_KEY, JSON.stringify(merged));
+        writeStoredHistory(merged);
         return merged;
     }
 
@@ -982,6 +1018,7 @@ const SwapManager = (function() {
             warnOnConfigDrift(data);
 
             refreshVersionDisplay();
+            refreshFeeInfoDisplay();
         } catch (error) {
             // hbd.json unreachable or unusable - fall back to config.js in
             // full, so nothing it served earlier in this session survives.
@@ -992,6 +1029,85 @@ const SwapManager = (function() {
                 "| stopped:", bridgeStopped,
                 "| minLiquidity:", minimumLiquidity);
             refreshVersionDisplay();
+            refreshFeeInfoDisplay();
+        }
+    }
+
+    /**
+     * Price and base fee for a pool imbalance ratio `diff` (-0.5..0.5).
+     * The one place the fee curve lives: the swap quote (calculateFee) and
+     * the Fee Information panel (getFeeRange) both use it, so the panel can
+     * never disagree with what a swap is actually quoted.
+     */
+    function priceAtDiff(diff, fromToken) {
+        // Adjusted base fee (lower when balancing pools)
+        const adjusted_base_fee = Math.max(
+            feeConfig.BASE_FEE * (1 - 2 * Math.abs(diff)),
+            feeConfig.MIN_BASE_FEE
+        );
+
+        // Price with pool imbalance adjustment
+        const price = parityPriceFor(fromToken) - (2 * diff * feeConfig.DIFF_COEFFICIENT);
+
+        return { price, adjusted_base_fee };
+    }
+
+    /**
+     * Output per unit of input at the base price, with no fee or imbalance.
+     */
+    function parityPriceFor(fromToken) {
+        return fromToken === "HBD"
+            ? feeConfig.BASE_PRICE_HBD_TO_SHBD
+            : 1 / feeConfig.BASE_PRICE_HBD_TO_SHBD;
+    }
+
+    /**
+     * Effective fee (fraction, negative = reward) at imbalance `diff`.
+     */
+    function effectiveFeeAtDiff(diff, fromToken) {
+        const { price, adjusted_base_fee } = priceAtDiff(diff, fromToken);
+        return 1 - (price * (1 - adjusted_base_fee)) / parityPriceFor(fromToken);
+    }
+
+    /**
+     * Fee range under the current fee settings, in percent:
+     *   min - the lowest fee any swap can get (usually one that fully
+     *         rebalances the pool; negative = a reward)
+     *   mid - the fee in a balanced pool
+     *   max - the highest fee any swap can pay
+     * min/max are searched over every pool state (imbalance -0.5..0.5) and
+     * both directions rather than read off the end points: the base fee
+     * shrinks as the pool gets lopsided, so with some settings the most
+     * expensive swap is not at the extreme.
+     */
+    function getFeeRange() {
+        const dirs = ["HBD", "SWAP.HBD"];
+        const steps = 1000;
+        let min = Infinity;
+        let max = -Infinity;
+        for (const dir of dirs) {
+            for (let i = 0; i <= steps; i++) {
+                const fee = effectiveFeeAtDiff(-0.5 + i / steps, dir);
+                if (fee < min) min = fee;
+                if (fee > max) max = fee;
+            }
+        }
+        const pct = (fraction) => Utils.roundTo(fraction * 100, 4);
+        return {
+            min: pct(min),
+            mid: pct(Math.max(...dirs.map(d => effectiveFeeAtDiff(0, d)))),
+            max: pct(max)
+        };
+    }
+
+    /**
+     * Push the current fee range into the Fee Information panel. Called
+     * after every hbd.json read (or fallback), like the version footer.
+     * Guarded because the first fetch happens before UIManager.initialize().
+     */
+    function refreshFeeInfoDisplay() {
+        if (typeof UIManager !== "undefined" && UIManager.updateFeeInfo) {
+            UIManager.updateFeeInfo(getFeeRange());
         }
     }
 
@@ -1015,29 +1131,26 @@ const SwapManager = (function() {
         const fromPool = fromToken === "HBD" ? hivePool : shivePool;
         const totalPool = hivePool + shivePool;
         
-        // Calculate pool difference ratio
-        const diff = ((amount * 0.5 + fromPool) / totalPool) - 0.5;
+        // Pool difference ratio, clamped to [-0.5, 0.5]. Those are the
+        // bounds of a pool that is entirely on one side, and they are what
+        // produce the published fee caps (Min -0.50% / Max 0.65%). Without
+        // the clamp a large swap into an already lopsided pool pushed the
+        // ratio past 0.5 and the fee past the 0.65% maximum.
+        const rawDiff = ((amount * 0.5 + fromPool) / totalPool) - 0.5;
+        const diff = Math.min(0.5, Math.max(-0.5, rawDiff));
         
-        // Calculate adjusted base fee (lower when balancing pools)
-        const adjusted_base_fee = Math.max(
-            feeConfig.BASE_FEE * (1 - 2 * Math.abs(diff)),
-            feeConfig.MIN_BASE_FEE
-        );
-        
-        // Calculate price with pool imbalance adjustment
-        let price;
-        if (fromToken === "HBD") {
-            price = feeConfig.BASE_PRICE_HBD_TO_SHBD - (2 * diff * feeConfig.DIFF_COEFFICIENT);
-        } else {
-            price = (1 / feeConfig.BASE_PRICE_HBD_TO_SHBD) - (2 * diff * feeConfig.DIFF_COEFFICIENT);
-        }
+        const { price, adjusted_base_fee } = priceAtDiff(diff, fromToken);
         
         // Calculate expected output
         const expectedOutput = (amount * price) * (1 - adjusted_base_fee);
         
-        // Calculate fee amount in input token
-        const feeAmount = amount * adjusted_base_fee;
-        const feePercent = adjusted_base_fee * 100;
+        // Effective fee in the input token: everything the user gives up
+        // versus a swap at the base (parity) price. This includes BOTH the
+        // base fee and the pool-imbalance price adjustment, matching the
+        // Min/Mid/Max fee table (-0.50% / 0.20% / 0.65%). It is negative
+        // when the swap rebalances the pools (a reward).
+        const feeAmount = amount - (expectedOutput / parityPriceFor(fromToken));
+        const feePercent = (feeAmount / amount) * 100;
         
         return {
             feeAmount: Utils.roundTo(feeAmount, 8),
@@ -1056,11 +1169,16 @@ const SwapManager = (function() {
         }
 
         const result = calculateFee(inputAmount, fromToken, toToken);
+        const expected = Math.floor(result.expectedOutput * CONFIG.DECIMAL) / CONFIG.DECIMAL;
+
+        // Derive the shown fee from the shown (floored) output so that
+        // "You Send - Expected Fee = You Receive" adds up on screen.
+        const fee = Utils.roundTo(inputAmount - (expected / parityPriceFor(fromToken)), 8);
 
         return {
-            expected: Math.floor(result.expectedOutput * CONFIG.DECIMAL) / CONFIG.DECIMAL,
-            fee: result.feeAmount,
-            feePercent: result.feePercent
+            expected: expected,
+            fee: fee,
+            feePercent: Utils.roundTo((fee / inputAmount) * 100, 4)
         };
     }
 
@@ -1068,6 +1186,13 @@ const SwapManager = (function() {
      * Update swap calculation
      */
     function updateSwapCalculation(amount, fromToken, toToken, slippage) {
+        // A swap is being sent: keep the amount and memo it was validated
+        // with. (A debounced keystroke or a balance refresh must not change
+        // what is about to be signed.)
+        if (swapInProgress) {
+            return currentSwap;
+        }
+
         currentSwap.from = fromToken;
         currentSwap.to = toToken;
         currentSwap.amount = Utils.parseNumber(amount, 0);
@@ -1092,6 +1217,39 @@ const SwapManager = (function() {
         validateSwapButton();
 
         return currentSwap;
+    }
+
+    /**
+     * Forget the amount of a swap that has been sent. The input boxes are
+     * cleared at the same time, so nothing is left that a later button
+     * re-check (e.g. the 30s balance refresh) could re-enable and resend.
+     */
+    function resetSwapAmount() {
+        currentSwap.amount = 0;
+        currentSwap.expected = 0;
+        currentSwap.fee = 0;
+        currentSwap.feePercent = 0;
+        currentSwap.minReceive = 0;
+    }
+
+    /**
+     * Re-quote from what is in the form right now. The input handler only
+     * re-quotes 300ms after the last keystroke, so a quick click could
+     * otherwise send the previous amount.
+     */
+    function syncSwapFromInputs() {
+        const inputQty = document.getElementById("inputquantity");
+        const inputSelect = document.getElementById("input");
+        const outputSelect = document.getElementById("output");
+        const slippageEl = document.querySelector('input[name="my-radio-group"]:checked');
+        if (!inputQty || !inputSelect || !outputSelect) return;
+
+        updateSwapCalculation(
+            Utils.parseNumber(inputQty.value, 0),
+            inputSelect.value,
+            outputSelect.value,
+            slippageEl ? slippageEl.value : currentSwap.slippage
+        );
     }
 
     /**
@@ -1151,6 +1309,12 @@ const SwapManager = (function() {
         const fromToken = inputFrom || currentSwap.from;
         const toToken = inputTo || currentSwap.to;
 
+        // A swap is already being sent - keep the button off until it ends
+        if (swapInProgress) {
+            UIManager.disableSwapButton();
+            return false;
+        }
+
         // Operator has paused the bridge - block swaps outright
         if (bridgeStopped) {
             UIManager.setSwapBlocked(
@@ -1187,15 +1351,6 @@ const SwapManager = (function() {
             return false;
         }
 
-        // Check if user has sufficient balance
-        const balances = WalletManager.getBalances();
-        const availableBalance = Utils.parseNumber(balances[fromToken], 0);
-        
-        if (availableBalance < amount) {
-            UIManager.disableSwapButton();
-            return false;
-        }
-
         // Check if bridge has sufficient liquidity for the output token
         const liquidity = MarketManager.getLiquidity();
         const expectedOutput = calculateExpectedOutput(amount, fromToken, toToken).expected;
@@ -1205,6 +1360,23 @@ const SwapManager = (function() {
         const availableLiquidity = Utils.parseNumber(liquidity[liquidityKey], 0);
         
         if (expectedOutput > availableLiquidity) {
+            UIManager.setSwapBlocked(liquidityShortMessage(toToken, expectedOutput, availableLiquidity));
+            UIManager.disableSwapButton();
+            return false;
+        }
+
+        // The box must name the account whose balances are loaded
+        if (walletMismatch()) {
+            UIManager.setSwapBlocked(walletMismatchMessage());
+            UIManager.disableSwapButton();
+            return false;
+        }
+
+        // Check if user has sufficient balance
+        const balances = WalletManager.getBalances();
+        const availableBalance = Utils.parseNumber(balances[fromToken], 0);
+        
+        if (availableBalance < amount) {
             UIManager.disableSwapButton();
             return false;
         }
@@ -1215,12 +1387,95 @@ const SwapManager = (function() {
     }
 
     /**
+     * Message shown when the bridge cannot pay out the quoted amount.
+     */
+    function liquidityShortMessage(toToken, expectedOutput, availableLiquidity) {
+        if (availableLiquidity <= 0) {
+            return "The bridge has no " + toToken + " liquidity available right now, so swaps to " +
+                toToken + " are disabled.";
+        }
+        return "Not enough bridge liquidity: you would receive " +
+            Utils.formatNumber(expectedOutput, 3) + " " + toToken + " but the bridge holds only " +
+            Utils.formatNumber(availableLiquidity, 3) + " " + toToken + ". Please swap a smaller amount.";
+    }
+
+    /**
+     * Throws when the bridge does not hold enough of the output token to pay
+     * out the current quote.
+     */
+    function assertBridgeLiquidity() {
+        const liquidity = MarketManager.getLiquidity();
+        const liquidityKey = currentSwap.to === "HBD" ? "hive" : "swapHive";
+        const availableLiquidity = Utils.parseNumber(liquidity[liquidityKey], 0);
+        const expectedOutput = calculateExpectedOutput(
+            currentSwap.amount, currentSwap.from, currentSwap.to
+        ).expected;
+        if (expectedOutput > availableLiquidity) {
+            throw new Utils.ValidationError(
+                liquidityShortMessage(currentSwap.to, expectedOutput, availableLiquidity) +
+                " Nothing was sent."
+            );
+        }
+    }
+
+    /**
+     * The account typed in the wallet box (sanitised), or "" if none.
+     */
+    function typedUsername() {
+        const el = document.getElementById("username");
+        return el ? Utils.sanitizeUsername(el.value) : "";
+    }
+
+    /**
+     * True when the box names a different account than the one whose
+     * balances are loaded - the swap would be signed by the loaded one.
+     */
+    function walletMismatch() {
+        const loaded = WalletManager.getCurrentUser();
+        const typed = typedUsername();
+        return !!(loaded && typed && typed !== loaded);
+    }
+
+    function walletMismatchMessage() {
+        return "@" + typedUsername() + " is not loaded yet (balances shown are for @" +
+            WalletManager.getCurrentUser() + "). Click Load Balance before swapping.";
+    }
+
+    /**
+     * Throws when, with the latest fees and pool balances, the bridge would
+     * pay less than the minimum-to-receive the user was shown (and that goes
+     * into the memo). Skipped in "No Minimum" mode, which accepts any amount.
+     */
+    function assertQuoteStillValid() {
+        if (currentSwap.noMinimum) return;
+
+        const fresh = calculateExpectedOutput(currentSwap.amount, currentSwap.from, currentSwap.to);
+        if (fresh.expected >= currentSwap.minReceive) return;
+
+        const shown = currentSwap.expected;
+        // Unfreeze and show the new quote so the user can review it
+        swapInProgress = false;
+        updateSwapCalculation(currentSwap.amount, currentSwap.from, currentSwap.to, currentSwap.slippage);
+        swapInProgress = true;
+
+        throw new Utils.ValidationError(
+            "The price moved: you would now receive about " + Utils.formatNumber(fresh.expected, 3) +
+            " " + currentSwap.to + " instead of " + Utils.formatNumber(shown, 3) +
+            ", below your minimum. The quote has been updated - review it and click SWAP NOW again. " +
+            "Nothing was sent."
+        );
+    }
+
+    /**
      * Validate swap (returns validation result)
      */
     function validateSwap() {
         const username = WalletManager.getCurrentUser();
         if (!username) {
             throw new Utils.ValidationError("Please load your wallet first");
+        }
+        if (walletMismatch()) {
+            throw new Utils.ValidationError(walletMismatchMessage() + " Nothing was sent.");
         }
 
         const balance = WalletManager.getBalance(currentSwap.from);
@@ -1337,6 +1592,27 @@ const SwapManager = (function() {
      * Execute swap with comprehensive error handling
      */
     async function executeSwap() {
+        // Ignore extra clicks while a swap is already running
+        if (swapInProgress) {
+            return false;
+        }
+
+        // Quote what is in the form at the moment of the click, then lock:
+        // from here until this swap ends the button stays off and the quote
+        // is frozen.
+        syncSwapFromInputs();
+        // Sign-in method as chosen at the click; changing it while the
+        // pre-send checks run must not change how this swap is signed.
+        const authMethodEl = document.querySelector('input[name="txtype"]:checked');
+        const authMethod = authMethodEl ? authMethodEl.value : "Hive Keychain";
+        swapInProgress = true;
+        UIManager.disableSwapButton();
+        UIManager.showLoading("Checking the bridge...");
+
+        // Set once the wallet has broadcast the transfer: from then on the
+        // amount must never be offered for sending again, even on an error.
+        let sent = false;
+
         try {
             // Re-read the operator controls immediately before submitting. The
             // page may have been open for a long time, and sending funds into a
@@ -1353,16 +1629,24 @@ const SwapManager = (function() {
             // Validate swap
             validateSwap();
 
+            // Re-read the bridge balances and refuse to send if the bridge can
+            // no longer pay out the quote (the pool may have moved since the
+            // page loaded).
+            await MarketManager.fetchLiquidity(true);
+            assertBridgeLiquidity();
+
+            // The memo carries the minimum the user agreed to. Re-quote with
+            // the fees and pool just re-read: if the bridge would now pay
+            // less than that minimum it would only refund the swap, so stop
+            // here, show the new quote and let the user decide.
+            assertQuoteStillValid();
+
             UIManager.showLoading("Processing swap...");
-            UIManager.disableSwapButton();
 
             const username = WalletManager.getCurrentUser();
             const minReceiveFormatted = Utils.roundTo(currentSwap.minReceive, 3).toFixed(3);
             // "No Minimum" mode sends memo "0" so the bridge accepts any output amount
             const memo = currentSwap.noMinimum ? "0" : minReceiveFormatted;
-
-            const authMethodEl = document.querySelector('input[name="txtype"]:checked');
-            const authMethod = authMethodEl ? authMethodEl.value : "Hive Keychain";
 
             let result;
             if (authMethod === "Hive Auth") {
@@ -1374,6 +1658,7 @@ const SwapManager = (function() {
                 result = await executeSwapHiveToHive(currentSwap.amount, username, memo);
             }
 
+            sent = true;
             const fromToken = currentSwap.from;
             const toToken = currentSwap.to;
 
@@ -1382,6 +1667,8 @@ const SwapManager = (function() {
                 addSwapToHistory(result.transactionId, currentSwap.amount, fromToken, username);
             }
 
+            // Sent: forget the amount along with the input boxes
+            resetSwapAmount();
             UIManager.clearSwapInputs();
 
             // Without a transaction id we cannot match the bridge's reply, so be
@@ -1389,7 +1676,7 @@ const SwapManager = (function() {
             if (!result.transactionId) {
                 UIManager.hideLoading();
                 UIManager.showSuccess("Transaction submitted. Check 'My Recent Swaps' for the result.");
-                setTimeout(() => WalletManager.refreshBalance(), 10000);
+                setTimeout(() => WalletManager.refreshBalance({ silent: true }), 10000);
                 return true;
             }
 
@@ -1438,7 +1725,12 @@ const SwapManager = (function() {
                 );
             }
 
-            await WalletManager.refreshBalance();
+            // This swap is finished (its result is on screen), so unlock now
+            // rather than after the balance refresh below - otherwise a new
+            // amount typed straight after the result was silently ignored.
+            releaseSwapLock();
+
+            await WalletManager.refreshBalance({ silent: true });
             UIManager.updateSwapHistory();
 
             return true;
@@ -1447,9 +1739,32 @@ const SwapManager = (function() {
             const handled = Utils.handleError(error, 'SwapManager.executeSwap');
             UIManager.hideLoading();
             UIManager.showError(handled.message);
-            // Re-validate button after error
-            validateSwapButton();
+            if (sent) {
+                // Funds already left the wallet - do not leave the amount
+                // armed for a second send.
+                resetSwapAmount();
+                UIManager.clearSwapInputs();
+            }
             return false;
+        } finally {
+            if (swapInProgress) {
+                releaseSwapLock();
+            }
+        }
+    }
+
+    /**
+     * End the one-swap-at-a-time lock and pick up whatever is in the form
+     * now: the quote was frozen while locked, so anything typed meanwhile
+     * was not yet quoted. After a sent swap the boxes were cleared, so the
+     * amount is 0 and the button stays off until a new one is entered.
+     */
+    function releaseSwapLock() {
+        swapInProgress = false;
+        if (document.getElementById("inputquantity")) {
+            syncSwapFromInputs();
+        } else {
+            validateSwapButton();
         }
     }
 
@@ -1482,6 +1797,8 @@ const SwapManager = (function() {
         getBackendVersion: () => backendVersion,
         getBackendVersionSource: () => backendVersionSource,
         isBridgeStopped: () => bridgeStopped,
-        getMinimumLiquidity: () => minimumLiquidity
+        isSwapInProgress: () => swapInProgress,
+        getMinimumLiquidity: () => minimumLiquidity,
+        getFeeRange
     };
 })();

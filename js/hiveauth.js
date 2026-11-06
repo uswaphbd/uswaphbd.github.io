@@ -16,6 +16,9 @@ const HiveAuthManager = (function() {
     const STORAGE_TOKEN = 'hiveAuthToken';
     const STORAGE_KEY = 'hiveAuthKey';
     const STORAGE_EXPIRE = 'hiveAuthExpire';
+    // The account the saved token was issued to. A HAS token belongs to one
+    // account; it used to be reused for whichever account was loaded.
+    const STORAGE_ACCOUNT = 'hiveAuthAccount';
 
     /**
      * Is this browser capable of Hive Auth at all
@@ -126,8 +129,12 @@ const HiveAuthManager = (function() {
         return !!expire && parseInt(expire, 10) > timestamp;
     }
 
-    function hasValidCachedToken() {
+    function hasValidCachedToken(username) {
+        // A token saved by an older build has no account recorded, so it
+        // cannot be shown to belong to this user - not reused.
         return !!(
+            username &&
+            localStorage.getItem(STORAGE_ACCOUNT) === username &&
             localStorage.getItem(STORAGE_TOKEN) &&
             localStorage.getItem(STORAGE_KEY) &&
             isTimeAvailable(localStorage.getItem(STORAGE_EXPIRE))
@@ -211,7 +218,7 @@ const HiveAuthManager = (function() {
             socket = ws;
             socket.addEventListener('close', onSocketClosed);
 
-            const reusingToken = hasValidCachedToken();
+            const reusingToken = hasValidCachedToken(username);
             let auth_key = reusingToken ? localStorage.getItem(STORAGE_KEY) : uuidv4();
             let token = reusingToken ? localStorage.getItem(STORAGE_TOKEN) : undefined;
 
@@ -264,6 +271,7 @@ const HiveAuthManager = (function() {
                             localStorage.setItem(STORAGE_TOKEN, token);
                             localStorage.setItem(STORAGE_EXPIRE, decrypted.expire);
                             localStorage.setItem(STORAGE_KEY, auth_key);
+                            localStorage.setItem(STORAGE_ACCOUNT, username);
 
                             showApproveStep();
                             UIManager.showSuccess('Connected! Approve the transaction to continue.');

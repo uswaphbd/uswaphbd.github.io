@@ -55,24 +55,18 @@
             $("body").css("visibility", "visible");
             $("#logo").show();
 
-            // Auto-refresh balance every 30 seconds if username is present.
+            // Background refresh every 30 seconds: wallet balances (quietly -
+            // it never touches the status line, so a swap's progress or result
+            // stays visible) plus the bridge pool and the current quote.
             // Skipped while the tab is in the background - a hidden tab polling
             // Hive + Hive Engine forever is wasted network, CPU and garbage.
             // It refreshes immediately when the tab becomes visible again.
             setInterval(function() {
-                if (document.hidden) return;
-                var username = $("#username").val().trim();
-                if (username) {
-                    $("#checkbalance").trigger("click");
-                }
+                UIManager.backgroundRefresh();
             }, 30000);
 
             document.addEventListener("visibilitychange", function() {
-                if (document.hidden) return;
-                var username = $("#username").val().trim();
-                if (username) {
-                    $("#checkbalance").trigger("click");
-                }
+                if (!document.hidden) UIManager.backgroundRefresh();
             });
         });
     </script>
@@ -184,21 +178,22 @@
                                 Fee Information
                             </h4>
                             
-                            <!-- Fees are symmetric, so one table covers both
-                                 directions rather than repeating identical values -->
+                            <!-- Filled from the live fee settings (hbd.json) by
+                                 UIManager.updateFeeInfo. The values below are only
+                                 what shows before the first hbd.json read. -->
                             <div class="fee-table">
                                 <div class="fee-row-header">HBD ⇄ SWAP.HBD</div>
                                 <div class="fee-row">
                                     <span>Min Fee</span>
-                                    <span class="fee-value">-0.40%</span>
+                                    <span class="fee-value" id="feeMin">-0.40%</span>
                                 </div>
                                 <div class="fee-row">
                                     <span>Mid Fee</span>
-                                    <span class="fee-value">0.30%</span>
+                                    <span class="fee-value" id="feeMid">0.30%</span>
                                 </div>
                                 <div class="fee-row">
                                     <span>Max Fee</span>
-                                    <span class="fee-value">0.60%</span>
+                                    <span class="fee-value" id="feeMax">0.60%</span>
                                 </div>
                             </div>
                         </div>
@@ -247,10 +242,6 @@
                         </div>
                     </div>
                     <div class="card-body-custom">
-                        <!-- Shown when the operator has paused the bridge, or when
-                             bridge liquidity is under MINIMUM_LIQUIDITY -->
-                        <div id="swapBlockedNotice" class="swap-blocked-notice d-none"></div>
-
                         <!-- From Token -->
                         <div class="swap-input-container">
                             <label class="swap-label">You Send</label>
@@ -361,6 +352,11 @@
                             </div>
                         </div>
 
+                        <!-- Why SWAP NOW is disabled: bridge paused, not enough
+                             liquidity, wallet not loaded... Sits right above the
+                             button so the reason is next to what the user clicks. -->
+                        <div id="swapBlockedNotice" class="swap-blocked-notice mt-3 d-none"></div>
+
                         <!-- Swap Button -->
                         <button type="button" id="swap" class="btn btn-gradient btn-lg w-100 mt-3" disabled>
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" class="me-2">
@@ -413,7 +409,7 @@
                             </div>
                         </div>
                         <div class="info-box mt-3">
-                            <p class="info-text">Provide liquidity and earn up to <strong>0.4%</strong> instant rewards!</p>
+                            <p class="info-text" id="liquidityRewardText">Provide liquidity and earn up to <strong>0.4%</strong> instant rewards!</p>
                         </div>
                     </div>
                 </div>

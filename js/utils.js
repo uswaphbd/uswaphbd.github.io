@@ -74,10 +74,18 @@ const Utils = (function() {
      */
     function isValidUsername(username) {
         if (!username || typeof username !== 'string') return false;
-        
-        // Hive username rules: 3-16 characters, lowercase letters, numbers, hyphens, dots
-        const regex = /^[a-z0-9\-\.]{3,16}$/;
-        return regex.test(username);
+
+        // Hive account-name rules (as enforced by the chain):
+        //  - 3 to 16 characters overall
+        //  - dot-separated segments, each at least 3 characters
+        //  - each segment starts with a letter, ends with a letter or digit,
+        //    and contains only lowercase letters, digits and single hyphens
+        if (username.length < 3 || username.length > 16) return false;
+        return username.split('.').every(segment =>
+            /^[a-z][a-z0-9-]*[a-z0-9]$/.test(segment) &&
+            segment.length >= 3 &&
+            segment.indexOf('--') === -1
+        );
     }
 
     /**

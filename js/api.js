@@ -83,7 +83,7 @@ const APIManager = (function() {
         const button = document.getElementById("popup-button-hive");
         if (button) {
             button.value = selectedHiveNode;
-            button.innerHTML = selectedHiveNode;
+            button.textContent = selectedHiveNode;
         }
         
         return selectedHiveNode;
@@ -107,7 +107,7 @@ const APIManager = (function() {
         const button = document.getElementById("popup-button-engine");
         if (button) {
             button.value = selectedEngineNode;
-            button.innerHTML = selectedEngineNode;
+            button.textContent = selectedEngineNode;
         }
         
         return selectedEngineNode;
@@ -186,6 +186,53 @@ const APIManager = (function() {
     }
 
     /**
+     * Run a Hive Engine call with node failover.
+     *
+     * Engine used to have no failover at all: one dead or slow Engine node
+     * broke balances, liquidity and swap verification. `apiFn` receives an
+     * SSC client; on failure (or a timeout) the next known Engine node is
+     * tried. A node that works is kept for the rest of the session and
+     * remembered for the next visit, like tryWithFailover does for Hive.
+     */
+    async function tryEngineWithFailover(apiFn, maxAttempts = 3) {
+        if (typeof SSC === 'undefined') {
+            throw new Utils.APIError('Hive Engine library is not available');
+        }
+        const candidates = [selectedEngineNode]
+            .concat(CONFIG.ENGINE_RPC_NODES.filter(node => node !== selectedEngineNode))
+            .filter(Boolean)
+            .slice(0, Math.max(1, maxAttempts));
+
+        let lastError;
+        for (const node of candidates) {
+            const client = node === selectedEngineNode && ssc ? ssc : new SSC(node);
+            try {
+                const result = await Utils.withTimeout(apiFn(client), 10000);
+                if (node !== selectedEngineNode) {
+                    console.log(`✅ Switched to working Engine node: ${node}`);
+                    selectedEngineNode = node;
+                    ssc = client;
+                    try {
+                        localStorage.setItem('selectedEngEndpoint', node);
+                    } catch (error) {
+                        /* storage unavailable - still use it this session */
+                    }
+                    const button = document.getElementById("popup-button-engine");
+                    if (button) {
+                        button.value = node;
+                        button.textContent = node;
+                    }
+                }
+                return result;
+            } catch (error) {
+                lastError = error;
+                console.warn(`⚠️ Engine node ${node} failed:`, error && error.message);
+            }
+        }
+        throw lastError;
+    }
+
+    /**
      * Get SSC instance
      */
     function getSSC() {
@@ -200,6 +247,7 @@ const APIManager = (function() {
         initializeEngineAPI,
         getSelectedEndpoint,
         getSelectedEngEndpoint,
-        tryWithFailover
+        tryWithFailover,
+        tryEngineWithFailover
     };
 })();

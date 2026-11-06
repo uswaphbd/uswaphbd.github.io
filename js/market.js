@@ -30,20 +30,16 @@ const MarketManager = (function() {
      * Query Hive Engine with Promise wrapper
      */
     function queryHiveEngine(contract, table, query, limit = 1) {
-        const ssc = APIManager.getSSC();
-        if (!ssc) {
-            return Promise.reject(new Utils.APIError('Hive Engine API not initialized'));
-        }
-
-        // Promise form only - do NOT pass a callback. sscjs's send() is
-        //   send(url, req, cb) { return cb && this.sendWithCallback(...), this.sendWithPromise(...) }
-        // so passing a callback fires TWO identical HTTP requests and leaves the
-        // second promise unhandled (surfacing as "Uncaught (in promise)
-        // AxiosError" when a node is slow). Omitting it halves Engine traffic.
-        return ssc.find(contract, table, query, limit, 0, [])
+        // Promise form only - do NOT pass a callback: sscjs's send() fires a
+        // second identical request when one is given. Runs through
+        // APIManager's Engine failover, so one dead or slow Engine node no
+        // longer breaks balances and liquidity.
+        return APIManager.tryEngineWithFailover(
+            (ssc) => ssc.find(contract, table, query, limit, 0, [])
+        )
             .then(result => result || [])
             .catch(error => {
-                throw new Utils.APIError(error.message || 'Query failed');
+                throw new Utils.APIError((error && error.message) || 'Query failed');
             });
     }
 
@@ -173,19 +169,21 @@ const MarketManager = (function() {
         try {
             console.log("🔄 Fetching fresh liquidity data...");
             
-            // Fetch both in parallel
-            const [accounts, tokens] = await Promise.all([
-                APIManager.tryWithFailover(() => 
+            // Fetch both in parallel. Each side is applied on its own, so a
+            // Hive Engine outage no longer stops the HBD pool updating (or
+            // the other way round); a side that failed keeps its last value.
+            const [accountsResult, tokensResult] = await Promise.allSettled([
+                APIManager.tryWithFailover(() =>
                     hive.api.getAccountsAsync([CONFIG.BRIDGE_USER])
                 ),
-                Utils.retry(() =>
-                    queryHiveEngine('tokens', 'balances', { 
-                        account: CONFIG.BRIDGE_USER, 
-                        symbol: 'SWAP.HBD' 
-                    }),
-                    2, 1000
-                )
+                queryHiveEngine('tokens', 'balances', {
+                    account: CONFIG.BRIDGE_USER,
+                    symbol: 'SWAP.HBD'
+                })
             ]);
+
+            const accounts = accountsResult.status === 'fulfilled' ? accountsResult.value : null;
+            const tokens = tokensResult.status === 'fulfilled' ? tokensResult.value : null;
 
             // Update HBD liquidity
             if (accounts && accounts.length > 0) {
@@ -193,10 +191,15 @@ const MarketManager = (function() {
                 UIManager.updateLiquidity("hiveliquidity", liquidity.hive);
             }
 
-            // Update SWAP.HBD liquidity
-            if (tokens && tokens.length > 0) {
-                liquidity.swapHive = Utils.parseNumber(tokens[0].balance, 0);
+            // Update SWAP.HBD liquidity (no balance row = the bridge holds none)
+            if (tokens) {
+                liquidity.swapHive = tokens.length > 0 ? Utils.parseNumber(tokens[0].balance, 0) : 0;
                 UIManager.updateLiquidity("swaphiveliquidity", liquidity.swapHive);
+            }
+
+            if (!accounts || !tokens) {
+                const failed = [!accounts && 'HBD', !tokens && 'SWAP.HBD'].filter(Boolean).join(' and ');
+                throw new Utils.APIError('Could not refresh the bridge ' + failed + ' balance');
             }
 
             liquidityCache.lastFetch = now;

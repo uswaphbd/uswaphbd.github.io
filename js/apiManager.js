@@ -8,9 +8,36 @@
     /**
      * Get custom nodes from localStorage
      */
+    function storageKey(type) {
+        return `custom${type.charAt(0).toUpperCase() + type.slice(1)}Nodes`;
+    }
+
+    /**
+     * Get custom nodes from localStorage. Damaged or unavailable storage
+     * reads as "no custom nodes" - it used to throw, and the node picker
+     * then never opened.
+     */
     function getCustomNodes(type) {
-        const key = `custom${type.charAt(0).toUpperCase() + type.slice(1)}Nodes`;
-        return JSON.parse(localStorage.getItem(key) || '[]');
+        try {
+            const parsed = JSON.parse(localStorage.getItem(storageKey(type)) || '[]');
+            return Array.isArray(parsed) ? parsed.filter(url => typeof url === 'string') : [];
+        } catch (error) {
+            console.warn(`Saved custom ${type} nodes are unreadable - ignoring them:`, error.message);
+            return [];
+        }
+    }
+
+    /**
+     * Save custom nodes. Returns false if storage is unavailable or full.
+     */
+    function saveCustomNodes(type, nodes) {
+        try {
+            localStorage.setItem(storageKey(type), JSON.stringify(nodes));
+            return true;
+        } catch (error) {
+            console.warn(`Could not save custom ${type} nodes:`, error.message);
+            return false;
+        }
     }
 
     /**
@@ -81,8 +108,11 @@
                 id: 1
             }, { timeout: 5000 });
             
-            // Hive Engine nodes return array result
-            return response.data && Array.isArray(response.data);
+            // Engine nodes answer JSON-RPC: { jsonrpc, id, result: [...] }.
+            // (A bare array is accepted too.) Only checking for a bare array
+            // rejected every real node that reached this fallback.
+            const data = response.data;
+            return !!data && (Array.isArray(data) || Array.isArray(data.result));
         } catch (error) {
             return false;
         }
@@ -125,8 +155,9 @@
         // Add to custom nodes
         const customNodes = getCustomNodes(type);
         customNodes.push(url);
-        localStorage.setItem(`custom${type.charAt(0).toUpperCase() + type.slice(1)}Nodes`, 
-            JSON.stringify(customNodes));
+        if (!saveCustomNodes(type, customNodes)) {
+            return { success: false, error: 'Could not save the node (browser storage is unavailable or full)' };
+        }
         
         console.log(`Added custom ${type} node: ${url}`);
         return { success: true };
@@ -142,8 +173,7 @@
         const index = customNodes.indexOf(url);
         if (index > -1) {
             customNodes.splice(index, 1);
-            localStorage.setItem(`custom${type.charAt(0).toUpperCase() + type.slice(1)}Nodes`, 
-                JSON.stringify(customNodes));
+            saveCustomNodes(type, customNodes);
             console.log(`Removed custom ${type} node: ${url}`);
         }
     }
@@ -161,7 +191,11 @@
      */
     function getSelectedNode(type) {
         const key = type === 'hive' ? 'selectedEndpoint' : 'selectedEngEndpoint';
-        return localStorage.getItem(key);
+        try {
+            return localStorage.getItem(key);
+        } catch (error) {
+            return null;
+        }
     }
 
     /**
@@ -169,13 +203,17 @@
      */
     function setSelectedNode(type, url) {
         const key = type === 'hive' ? 'selectedEndpoint' : 'selectedEngEndpoint';
-        localStorage.setItem(key, url);
-        
-        // Update button display
+        try {
+            localStorage.setItem(key, url);
+        } catch (error) {
+            console.warn('Could not save the selected node:', error.message);
+        }
+
+        // Update button display (as text - a URL is never markup)
         const buttonId = type === 'hive' ? 'popup-button-hive' : 'popup-button-engine';
         const button = document.getElementById(buttonId);
         if (button) {
-            button.innerHTML = url;
+            button.textContent = url;
         }
     }
 

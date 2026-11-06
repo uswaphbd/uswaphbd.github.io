@@ -8,7 +8,7 @@ const CONFIG = {
     // FRONTEND_VERSION is the source of truth for this app: it is shown in the
     // footer and drives the service worker cache name (see sw.js), so bumping
     // it is what actually pushes a new build out to returning visitors.
-    FRONTEND_VERSION: "2.1.1",
+    FRONTEND_VERSION: "2.2.0",
     // Fallback only: used when hbd.json does not publish a version. hbd.json
     // currently publishes none, so this IS what the footer shows - keep it in
     // step with the deployed HBD backend script.
@@ -110,6 +110,8 @@ const CONFIG = {
     HIVE_AUTH_APP_DATA: {
         name: "SWAP HIVE DOLLAR",
         description: "Liquidity Bridge",
+        // Shown in the Hive Auth app. Served from this site (CNAME hbd.uswap.app,
+        // file assets/hiveupme.png).
         icon: "https://hbd.uswap.app/assets/hiveupme.png"
     },
     // How long to wait for a Hive Auth round-trip before giving up

@@ -173,17 +173,27 @@ const UIManager = (function() {
             swapBtn.disabled = false;
         }
 
-        // Enable auth method radios (Hive Auth only if this browser actually supports it)
-        const authRadios = document.querySelectorAll('input[name="txtype"]');
-        if (authRadios) {
-            authRadios.forEach(radio => {
-                if (radio.value === "Hive Auth" && !HiveAuthManager.isSupported()) {
-                    radio.disabled = true;
-                    return;
+    }
+
+    /**
+     * Make the sign-in method choice usable. It used to be enabled only
+     * together with the SWAP button, so Hive Auth could not be picked until a
+     * valid amount was entered and greyed out whenever the amount was not.
+     * Hive Auth stays disabled only in a browser that cannot run it.
+     */
+    function initializeAuthMethods() {
+        document.querySelectorAll('input[name="txtype"]').forEach(radio => {
+            const unsupported = radio.value === "Hive Auth" && !HiveAuthManager.isSupported();
+            radio.disabled = unsupported;
+            if (unsupported) {
+                radio.closest('label')?.setAttribute('title', 'Hive Auth is not supported in this browser');
+                if (radio.checked) {
+                    radio.checked = false;
+                    const keychain = document.querySelector('input[name="txtype"][value="Hive Keychain"]');
+                    if (keychain) keychain.checked = true;
                 }
-                radio.disabled = false;
-            });
-        }
+            }
+        });
     }
 
     /**
@@ -371,6 +381,44 @@ const UIManager = (function() {
             backendEl.title = source === "hbd.json"
                 ? "Reported live by the bridge in hbd.json"
                 : "From config.js (BACKEND_VERSION) - hbd.json did not publish a version";
+        }
+    }
+
+    /**
+     * Fill the Fee Information panel (Min / Mid / Max) and the liquidity
+     * rewards line from the live fee settings - see SwapManager.getFeeRange.
+     * They used to be fixed text, so a fee change in hbd.json left the panel
+     * showing different numbers from what swaps were actually quoted.
+     */
+    function updateFeeInfo(range) {
+        if (!range) return;
+        const fmt = (pct) => {
+            const rounded = Utils.roundTo(pct, 2);
+            return (Object.is(rounded, -0) ? 0 : rounded).toFixed(2) + "%";
+        };
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        set("feeMin", fmt(range.min));
+        set("feeMid", fmt(range.mid));
+        set("feeMax", fmt(range.max));
+
+        // A negative minimum fee is a reward for swaps that rebalance the
+        // pool. Show "up to X%" only when there is one.
+        const reward = -range.min;
+        const rewardLine = document.getElementById("liquidityRewardText");
+        if (rewardLine) {
+            if (reward > 0) {
+                const pct = String(Utils.roundTo(reward, 2)) + "%";
+                rewardLine.textContent = "";
+                rewardLine.append("Provide liquidity and earn up to ");
+                const strong = document.createElement("strong");
+                strong.textContent = pct;
+                rewardLine.append(strong, " instant rewards!");
+            } else {
+                rewardLine.textContent = "Swaps that rebalance the pool pay the lowest fee.";
+            }
         }
     }
 
@@ -793,6 +841,59 @@ const UIManager = (function() {
     }
 
     /**
+     * Clear the status line (and spinner) when the user starts setting up a
+     * new swap. The previous swap's result ("Swap complete! ...") used to stay
+     * under the button while a different swap was being entered, reading as
+     * if it applied to the new one. Never clears a swap that is running.
+     */
+    function clearStaleStatus() {
+        if (typeof SwapManager !== "undefined" && SwapManager.isSwapInProgress &&
+            SwapManager.isSwapInProgress()) {
+            return;
+        }
+        hideLoading();
+    }
+
+    /**
+     * Re-read the bridge pool and re-quote the current swap against it.
+     * Pool balances drive both the quote and the liquidity check, so a
+     * quote is only as fresh as the pool it was computed from.
+     */
+    async function refreshPoolAndQuote() {
+        await MarketManager.fetchLiquidity(true);
+        const swap = SwapManager.getCurrentSwap();
+        if (swap && swap.amount > 0) {
+            // No-op while a swap is being sent (its quote is frozen)
+            SwapManager.updateSwapCalculation(swap.amount, swap.from, swap.to, swap.slippage);
+        } else {
+            SwapManager.validateButton();
+        }
+    }
+
+    /**
+     * Background refresh, run every 30s while the tab is visible and when
+     * it becomes visible again: wallet balances (quietly - never touching the
+     * status line or spinner) and the bridge pool + quote.
+     */
+    let backgroundRefreshRunning = false;
+    async function backgroundRefresh() {
+        if (backgroundRefreshRunning || document.hidden) return;
+        backgroundRefreshRunning = true;
+        try {
+            const usernameInput = document.getElementById("username");
+            const username = usernameInput ? usernameInput.value.trim() : "";
+            await Promise.all([
+                username ? WalletManager.loadBalance(username, false, { silent: true }) : null,
+                refreshPoolAndQuote()
+            ]);
+        } catch (error) {
+            console.warn("Background refresh failed:", error && error.message);
+        } finally {
+            backgroundRefreshRunning = false;
+        }
+    }
+
+    /**
      * Setup event listeners
      */
     function setupEventListeners() {
@@ -803,6 +904,14 @@ const UIManager = (function() {
             usernameInput.value = savedUsername;
         }
         
+        // Typing a different account turns the swap button off (with a
+        // reason) until that account's balances are loaded.
+        if (usernameInput) {
+            usernameInput.addEventListener('input', () => {
+                SwapManager.validateButton();
+            });
+        }
+
         // Save username when it changes
         if (usernameInput) {
             usernameInput.addEventListener('blur', () => {
@@ -836,6 +945,7 @@ const UIManager = (function() {
             }, 300);
 
             inputQty.addEventListener("input", (e) => {
+                clearStaleStatus();
                 const amount = Utils.parseNumber(e.target.value, 0);
                 const fromToken = document.getElementById("input").value;
                 const toToken = document.getElementById("output").value;
@@ -853,6 +963,7 @@ const UIManager = (function() {
         const inputSelect = document.getElementById("input");
         if (inputSelect) {
             inputSelect.addEventListener("change", () => {
+                clearStaleStatus();
                 const outputSelect = document.getElementById("output");
                 if (outputSelect) {
                     outputSelect.value = inputSelect.value === "HBD" ? "SWAP.HBD" : "HBD";
@@ -883,6 +994,7 @@ const UIManager = (function() {
         const slippageRadios = document.querySelectorAll('input[name="my-radio-group"]');
         slippageRadios.forEach(radio => {
             radio.addEventListener("change", (e) => {
+                clearStaleStatus();
                 const amount = parseFloat(inputQty?.value) || 0;
                 const fromToken = document.getElementById("input").value;
                 const toToken = document.getElementById("output").value;
@@ -896,6 +1008,7 @@ const UIManager = (function() {
         const noMinimumCheck = document.getElementById("noMinimumCheck");
         if (noMinimumCheck) {
             noMinimumCheck.addEventListener("change", (e) => {
+                clearStaleStatus();
                 SwapManager.setNoMinimum(e.target.checked);
 
                 // Grey out the now-irrelevant slippage controls for clarity
@@ -929,7 +1042,7 @@ const UIManager = (function() {
         const refreshBtn = document.getElementById("refresh");
         if (refreshBtn) {
             refreshBtn.addEventListener("click", async () => {
-                await MarketManager.fetchLiquidity();
+                await refreshPoolAndQuote();
             });
         }
 
@@ -1054,7 +1167,9 @@ const UIManager = (function() {
         initializeCustomSelects();
         setupEventListeners();
         initializeTheme();
+        initializeAuthMethods();
         updateVersions();
+        updateFeeInfo(SwapManager.getFeeRange());
 
         // Set initial values
         const inputSelect = document.getElementById("input");
@@ -1084,7 +1199,9 @@ const UIManager = (function() {
         disableSwapButton,
         updateSwapHistory,
         updateBridgeHistory,
+        backgroundRefresh,
         updateVersions,
+        updateFeeInfo,
         setSwapBlocked,
         setTheme
     };
